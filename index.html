@@ -46,6 +46,7 @@ input,textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:
 dialog{border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--ink);width:min(440px,92vw);padding:18px}
 dialog::backdrop{background:rgba(20,8,30,.55)}dialog h2{margin:0 0 10px}dialog input,dialog textarea,dialog select{margin-bottom:10px}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:40;font-weight:600}
+.media video,.media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}.reel video,.reel img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .empty{text-align:center;color:var(--mute);padding:40px 10px}
 @media (max-width:560px){nav{order:3;width:100%;justify-content:space-between}nav button{flex:1;padding:8px 6px}.me{margin-left:auto}}
 @media (prefers-reduced-motion:reduce){.art span{animation:none}}
@@ -66,6 +67,7 @@ dialog::backdrop{background:rgba(20,8,30,.55)}dialog h2{margin:0 0 10px}dialog i
   <input id="aName" placeholder="Username" autocomplete="username" hidden>
   <input id="aEmail" type="email" placeholder="Email" autocomplete="email">
   <input id="aPass" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
+  <button class="btn" id="aGoogle" style="width:100%;background:#fff;color:#2a1838;border:1px solid var(--line);margin-bottom:6px">Continue with Google</button><p style="text-align:center;color:var(--mute);margin:4px 0 10px;font-size:.85rem">or use email</p>
   <div class="row" style="justify-content:space-between"><button class="ghost" id="aSwitch">Create an account</button><span><button class="ghost" id="aCancel">Cancel</button> <button class="btn" id="aGo">Log in</button></span></div>
 </dialog>
 <dialog id="newDlg">
@@ -73,6 +75,7 @@ dialog::backdrop{background:rgba(20,8,30,.55)}dialog h2{margin:0 0 10px}dialog i
   <select id="nKind" aria-label="Type"><option value="post">Post</option><option value="reel">Reel (short)</option><option value="video">Video</option></select>
   <input id="nTitle" placeholder="Title (for videos)">
   <textarea id="nBody" rows="4" placeholder="Share what’s on your mind…"></textarea>
+  <input id="nFile" type="file" accept="image/*,video/*" aria-label="Photo or video (up to 50 MB)">
   <div class="row" style="justify-content:flex-end"><button class="ghost" id="nCancel">Cancel</button><button class="btn" id="nGo">Publish</button></div>
 </dialog>
 
@@ -88,6 +91,7 @@ let user=null,me=null,posts=[],tab='feed',watching=null,signup=false;
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
 function ago(d){const s=(Date.now()-new Date(d))/1000;if(s<60)return'now';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'}
 function art(g){const c=GRAD[g%6];return `<div class="art" style="background:linear-gradient(135deg,${c[0]},${c[1]})"><span style="width:55%;aspect-ratio:1;left:-8%;top:-10%;background:${c[2]};opacity:.55"></span><span style="width:40%;aspect-ratio:1;right:-6%;bottom:-8%;background:${c[0]};opacity:.7;animation-delay:-3s"></span></div>`}
+function mh(p,reel){if(p.media_url){if(p.media_type==='video')return `<video src="${esc(p.media_url)}" ${reel?'autoplay muted loop':''} controls playsinline preload="metadata"></video>`;return `<img src="${esc(p.media_url)}" alt="Photo by ${esc(p.profiles?.username)}" loading="lazy">`}return art(p.theme)}
 function av(p){const n=p?.username||'?';return `<div class="av" style="background:${COLORS[(p?.color||0)%6]}">${esc(n[0].toUpperCase())}</div>`}
 function likeBtn(p){const on=user&&p.likes.some(l=>l.user_id===user.id);return `<button class="${on?'on':''}" data-like="${p.id}" aria-pressed="${on}">${on?'♥':'♡'} ${p.likes.length}</button>`}
 
@@ -101,13 +105,13 @@ function topbar(){
 }
 function cmtHtml(p){return `<div class="cmts" hidden>${p.comments.map(c=>`<p><b>${esc(c.profiles?.username||'User')}</b> ${esc(c.body)}</p>`).join('')}<form data-form="${p.id}"><input placeholder="Write a comment…" aria-label="Comment" required maxlength="500"><button class="btn">Send</button></form></div>`}
 function renderFeed(){view.className='';const l=posts.filter(p=>p.kind==='post');
- view.innerHTML=l.length?l.map(p=>`<article class="card"><div class="ph">${av(p.profiles)}<div><b>${esc(p.profiles?.username)}</b><small>${ago(p.created_at)}</small></div>${user&&p.user_id===user.id?`<button class="ghost" data-del="${p.id}" style="margin-left:auto" aria-label="Delete post">Delete</button>`:''}</div><div class="txt">${esc(p.body)}</div><div class="media">${art(p.theme)}</div><div class="acts">${likeBtn(p)}<button data-cm>💬 ${p.comments.length}</button><button data-share="${p.id}">↗ Share</button></div>${cmtHtml(p)}</article>`).join(''):`<p class="empty">No posts yet. Log in and tap + Create to share the first one.</p>`}
+ view.innerHTML=l.length?l.map(p=>`<article class="card"><div class="ph">${av(p.profiles)}<div><b>${esc(p.profiles?.username)}</b><small>${ago(p.created_at)}</small></div>${user&&p.user_id===user.id?`<button class="ghost" data-del="${p.id}" style="margin-left:auto" aria-label="Delete post">Delete</button>`:''}</div><div class="txt">${esc(p.body)}</div><div class="media">${mh(p)}</div><div class="acts">${likeBtn(p)}<button data-cm>💬 ${p.comments.length}</button><button data-share="${p.id}">↗ Share</button></div>${cmtHtml(p)}</article>`).join(''):`<p class="empty">No posts yet. Log in and tap + Create to share the first one.</p>`}
 function renderReels(){view.className='';const l=posts.filter(p=>p.kind==='reel');
- view.innerHTML=l.length?`<div class="reels">${l.map(p=>`<section class="reel">${art(p.theme)}<div class="cap"><b>@${esc(p.profiles?.username)}</b><div>${esc(p.body)}</div></div><div class="side">${likeBtn(p)}<button data-share="${p.id}">↗ Share</button></div></section>`).join('')}</div>`:`<p class="empty">No reels yet. Create the first reel.</p>`}
+ view.innerHTML=l.length?`<div class="reels">${l.map(p=>`<section class="reel">${mh(p,1)}<div class="cap"><b>@${esc(p.profiles?.username)}</b><div>${esc(p.body)}</div></div><div class="side">${likeBtn(p)}<button data-share="${p.id}">↗ Share</button></div></section>`).join('')}</div>`:`<p class="empty">No reels yet. Create the first reel.</p>`}
 function renderVideos(){view.className='wide';
- if(watching){const p=posts.find(x=>x.id===watching);if(p){view.innerHTML=`<div style="max-width:860px;margin:0 auto"><button class="btn" data-back>← All videos</button><div class="media" style="border-radius:16px;margin-top:12px">${art(p.theme)}</div><h2 style="margin:12px 0 4px">${esc(p.title||'Untitled')}</h2><small style="color:var(--mute)">${ago(p.created_at)} ago</small><p style="white-space:pre-wrap">${esc(p.body)}</p><div class="row">${av(p.profiles)}<b>${esc(p.profiles?.username)}</b><span style="margin-left:auto"></span>${likeBtn(p)}</div><article class="card">${cmtHtml(p).replace('hidden','')}</article></div>`;return}watching=null}
+ if(watching){const p=posts.find(x=>x.id===watching);if(p){view.innerHTML=`<div style="max-width:860px;margin:0 auto"><button class="btn" data-back>← All videos</button><div class="media" style="border-radius:16px;margin-top:12px">${mh(p)}</div><h2 style="margin:12px 0 4px">${esc(p.title||'Untitled')}</h2><small style="color:var(--mute)">${ago(p.created_at)} ago</small><p style="white-space:pre-wrap">${esc(p.body)}</p><div class="row">${av(p.profiles)}<b>${esc(p.profiles?.username)}</b><span style="margin-left:auto"></span>${likeBtn(p)}</div><article class="card">${cmtHtml(p).replace('hidden','')}</article></div>`;return}watching=null}
  const l=posts.filter(p=>p.kind==='video');
- view.innerHTML=l.length?`<div class="grid">${l.map(p=>`<button class="vid" data-open="${p.id}"><div class="media">${art(p.theme)}</div><h3>${esc(p.title||'Untitled')}</h3><small>${esc(p.profiles?.username)} · ${ago(p.created_at)} ago</small></button>`).join('')}</div>`:`<p class="empty">No videos yet. Create the first one.</p>`}
+ view.innerHTML=l.length?`<div class="grid">${l.map(p=>`<button class="vid" data-open="${p.id}"><div class="media">${mh(p)}</div><h3>${esc(p.title||'Untitled')}</h3><small>${esc(p.profiles?.username)} · ${ago(p.created_at)} ago</small></button>`).join('')}</div>`:`<p class="empty">No videos yet. Create the first one.</p>`}
 function render(){topbar();document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));({feed:renderFeed,reels:renderReels,videos:renderVideos})[tab]()}
 function needLogin(){if(user)return false;openAuth(false);toast('Log in first');return true}
 function openAuth(s){signup=s;$('#authTitle').textContent=s?'Create account':'Log in';$('#aName').hidden=!s;$('#aGo').textContent=s?'Sign up':'Log in';$('#aSwitch').textContent=s?'I have an account':'Create an account';$('#authDlg').showModal()}
@@ -126,6 +130,7 @@ document.addEventListener('click',async e=>{
  else if(t.id==='login')openAuth(false);else if(t.id==='signupBtn')openAuth(true);
  else if(t.id==='logout'){await sb.auth.signOut()}
  else if(t.id==='create'){$('#newDlg').showModal()}
+ else if(t.id==='aGoogle'){const r=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(r.error)toast(r.error.message)}
  else if(t.id==='aSwitch')openAuth(!signup);else if(t.id==='aCancel')$('#authDlg').close();
  else if(t.id==='nCancel')$('#newDlg').close();
  else if(t.id==='aGo'){
@@ -141,10 +146,16 @@ document.addEventListener('click',async e=>{
  else if(t.id==='nGo'){
   const body=$('#nBody').value.trim();if(!body){toast('Write something first');return}
   const kind=$('#nKind').value,title=$('#nTitle').value.trim()||null;
-  t.disabled=true;
-  const {error}=await sb.from('posts').insert({user_id:user.id,kind,title,body,theme:Math.floor(Math.random()*6)});
-  t.disabled=false;if(error){toast(error.message);return}
-  $('#nBody').value='';$('#nTitle').value='';$('#newDlg').close();tab=kind==='post'?'feed':kind==='reel'?'reels':'videos';watching=null;await load();toast('Published');
+  const f=$('#nFile').files[0];let media_url=null,media_type=null;
+  if(f&&f.size>52428800){toast('File is over 50 MB');return}
+  t.disabled=true;t.textContent='Publishing…';
+  if(f){const path=`${user.id}/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+   const up=await sb.storage.from('media').upload(path,f,{contentType:f.type});
+   if(up.error){toast(up.error.message);t.disabled=false;t.textContent='Publish';return}
+   media_url=sb.storage.from('media').getPublicUrl(path).data.publicUrl;media_type=f.type.startsWith('video')?'video':'image'}
+  const {error}=await sb.from('posts').insert({user_id:user.id,kind,title,body,media_url,media_type,theme:Math.floor(Math.random()*6)});
+  t.disabled=false;t.textContent='Publish';if(error){toast(error.message);return}
+  $('#nFile').value='';$('#nBody').value='';$('#nTitle').value='';$('#newDlg').close();tab=kind==='post'?'feed':kind==='reel'?'reels':'videos';watching=null;await load();toast('Published');
  }
 });
 document.addEventListener('submit',async e=>{

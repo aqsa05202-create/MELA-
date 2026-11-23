@@ -1,6 +1,3 @@
-Mela (asli version: login + sabke liye shared posts)
-
-1. Zip extract karein.
-2. app.netlify.com/drop par folder drag karein.
-3. Supabase mein: Authentication -> Sign In / Providers -> Email -> "Confirm email" band karein (test ke liye).
-4. Netlify link kholein, Sign up karein, post banayein.
+Mela v3 (Google login + email login + upload)
+Upload sirf index.html Netlify ya GitHub Pages par.
+Google login ke liye Supabase aur Google Cloud mein setup chahiye (chat mein steps diye hain).
