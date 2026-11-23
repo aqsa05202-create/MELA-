@@ -130,7 +130,7 @@ document.addEventListener('click',async e=>{
  else if(t.id==='login')openAuth(false);else if(t.id==='signupBtn')openAuth(true);
  else if(t.id==='logout'){await sb.auth.signOut()}
  else if(t.id==='create'){$('#newDlg').showModal()}
- else if(t.id==='aGoogle'){const r=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(r.error)toast(r.error.message)}
+ else if(t.id==='aGoogle'){const r=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:'https://aqsa05202-create.github.io/MELE/'}});if(r.error)toast(r.error.message)}
  else if(t.id==='aSwitch')openAuth(!signup);else if(t.id==='aCancel')$('#authDlg').close();
  else if(t.id==='nCancel')$('#newDlg').close();
  else if(t.id==='aGo'){
