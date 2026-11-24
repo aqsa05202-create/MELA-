@@ -107,6 +107,10 @@ body.tt header,body.tt footer{display:none}body.tt main{padding:0;max-width:none
 .bigav{display:block;position:relative;margin-top:-52px}.phead>div:first-child{padding-top:10px}
 .avcam{position:absolute;right:2px;bottom:2px;width:30px;height:30px;border-radius:50%;background:#fe2c55;color:#fff;display:grid;place-items:center;border:2px solid var(--bg);cursor:pointer;font-size:.9rem}
 img.av{object-fit:cover}
+.pcover video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.esec{margin:18px 0 8px;font-size:1rem}.ehint{color:var(--mute);font-size:.85rem;margin:6px 0 0}
+.erow{display:flex;gap:14px;align-items:center}.erow .av{width:84px;height:84px;font-size:2rem;border:3px solid var(--line)}
+.chg{display:inline-block;background:var(--line);padding:9px 16px;border-radius:10px;font-weight:700;cursor:pointer}.chg:focus-within{outline:3px solid var(--teal);outline-offset:2px}
 .hero{background:linear-gradient(135deg,#2a1838,#5b3fd1 55%,#ff8a00);color:#fff;border-radius:22px;padding:34px 22px;margin-bottom:14px}
 .hero h1{margin:0 0 8px;font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.1;letter-spacing:-.03em}.hero p{margin:0 0 16px;opacity:.92;max-width:46ch}
 .hero .ghost{border-color:rgba(255,255,255,.55);color:#fff}
@@ -153,6 +157,7 @@ const COLORS=['#ff8a00','#0f8b7f','#c2185b','#5b3fd1','#d1a400','#1b6fd1'];
 const GRAD=[['#ff8a00','#c2185b','#5b3fd1'],['#0f8b7f','#1b6fd1','#2a1838'],['#d1a400','#ff8a00','#c2185b'],['#5b3fd1','#0f8b7f','#ff8a00'],['#c2185b','#2a1838','#1b6fd1'],['#1b6fd1','#34d1c0','#d1a400']];
 const $=s=>document.querySelector(s),view=$('#view');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let ec=null,ea=null,ecU=null,eaU=null;
 let cfil='',stories=[],sgroups=[],sv={gi:0,si:0},stT=null,seenSet={},cpref='',notifs=[],cf=null,ck='reel',curl=null,ccap='',ctitle='',ctext=false,cbusy=false,msgs=[],pcache={},thread=null,chan=null,ptab='grid',editing=false,rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
 try{seenSet=JSON.parse(localStorage.getItem('mela-seen')||'{}')}catch(e){}
 const FIL={warm:'sepia(.35) saturate(1.3) hue-rotate(-10deg)',cool:'saturate(1.1) hue-rotate(15deg) brightness(1.05)',bw:'grayscale(1)',vivid:'saturate(1.6) contrast(1.1)',fade:'contrast(.85) brightness(1.15) saturate(.8)',vintage:'sepia(.6) contrast(.9) brightness(1.05)'};
@@ -238,12 +243,23 @@ async function crPost(){if(cbusy)return;const body=ccap.trim();if(!body&&!cf){to
   closeCreate();tab=kind==='post'?'feed':kind==='reel'?'reels':'videos';watching=null;await load();toast('Posted!')}
  catch(err){toast(err.message||'Upload failed')}
  cbusy=false;if(!$('#cr').hidden)crRender()}
-async function upImg(f,col){if(!f||!user)return;if(!f.type.startsWith('image/')){toast('Choose an image');return}if(f.size>5242880){toast('Image must be under 5 MB');return}
- toast('Uploading…');const path=`${user.id}/${col==='avatar_url'?'avatar':'cover'}-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
- const up=await sb.storage.from('media').upload(path,f,{contentType:f.type});if(up.error){toast(up.error.message);return}
- const url=sb.storage.from('media').getPublicUrl(path).data.publicUrl;const {error}=await sb.from('profiles').update({[col]:url}).eq('id',user.id);if(error){toast(error.message);return}
- me[col]=url;await load();toast(col==='avatar_url'?'Profile photo updated':'Cover updated')}
-document.addEventListener('change',e=>{if(e.target.dataset.avfile!==undefined){upImg(e.target.files[0],'avatar_url');e.target.value=''}else if(e.target.dataset.covfile!==undefined){upImg(e.target.files[0],'cover_url');e.target.value=''}});
+const isVidUrl=u=>/\.(mp4|webm|mov|m4v)(\?|$)/i.test(u||'');
+const covMedia=(u,v)=>v?`<video src="${esc(u)}" autoplay muted loop playsinline></video>`:`<img src="${esc(u)}" alt="Cover">`;
+function clearEdit(){if(ecU)URL.revokeObjectURL(ecU);if(eaU)URL.revokeObjectURL(eaU);ec=ea=ecU=eaU=null}
+function setCover(f,u){if(ecU)URL.revokeObjectURL(ecU);ec=f;ecU=u;const p=$('#ecPrev');if(p)p.innerHTML=covMedia(u,f.type.startsWith('video'))}
+function stageCover(f){if(!f)return;
+ if(f.type.startsWith('video')){if(f.size>52428800){toast('Video is over 50 MB');return}
+  const u=URL.createObjectURL(f),v=document.createElement('video');v.preload='metadata';
+  v.onloadedmetadata=()=>{if(v.duration>10.5){URL.revokeObjectURL(u);toast('Cover video must be 10 seconds or less');return}setCover(f,u)};
+  v.onerror=()=>{URL.revokeObjectURL(u);toast('Cannot read this video')};v.src=u}
+ else if(f.type.startsWith('image/')){if(f.size>5242880){toast('Photo must be under 5 MB');return}setCover(f,URL.createObjectURL(f))}
+ else toast('Choose a photo or a video')}
+function stageAvatar(f){if(!f)return;if(!f.type.startsWith('image/')){toast('Choose a photo');return}if(f.size>5242880){toast('Photo must be under 5 MB');return}
+ if(eaU)URL.revokeObjectURL(eaU);ea=f;eaU=URL.createObjectURL(f);const p=$('#eaPrev');if(p)p.innerHTML=`<img class="av" src="${eaU}" alt="New profile picture">`}
+async function upFile(f,pre){const ext=f.type==='video/quicktime'?'mov':(f.type.split('/')[1]||'bin').split(';')[0].replace(/[^a-z0-9]/gi,'');
+ const path=`${user.id}/${pre}-${Date.now()}.${ext}`;const up=await sb.storage.from('media').upload(path,f,{contentType:f.type});if(up.error)throw up.error;
+ return sb.storage.from('media').getPublicUrl(path).data.publicUrl}
+document.addEventListener('change',e=>{if(e.target.dataset.avfile!==undefined){stageAvatar(e.target.files[0]);e.target.value=''}else if(e.target.dataset.covfile!==undefined){stageCover(e.target.files[0]);e.target.value=''}});
 document.addEventListener('change',e=>{if(e.target.dataset.cfile!==undefined){crPick(e.target.files[0]);e.target.value=''}});
 document.addEventListener('input',e=>{if(e.target.id==='cCap')ccap=e.target.value;if(e.target.id==='cTitle')ctitle=e.target.value});
 function updNbadge(){const n=user?notifs.filter(x=>!x.read_at).length:0,b=$('#nbadge');if(!b)return;b.hidden=!n;b.textContent=n>9?'9+':n}
@@ -281,15 +297,23 @@ function renderProfile(){view.className='';const id=pid||user?.id;
  const own=user&&id===user.id,mine=posts.filter(p=>p.user_id===id),lk=mine.reduce((n,p)=>n+p.likes.length,0);
  const fers=follows.filter(f=>f.following_id===id).length,fing=follows.filter(f=>f.follower_id===id).length;
  const isF=user&&follows.some(f=>f.follower_id===user.id&&f.following_id===id);
- const c=GRAD[(pr.color||0)%6],cover=`<div class="pcover" style="background:linear-gradient(135deg,${c[0]},${c[1]},${c[2]})">${pr.cover_url?`<img src="${esc(pr.cover_url)}" alt="Cover">`:''}${own?'<label class="covbtn">📷 Cover<input class="sr" type="file" accept="image/*" data-covfile aria-label="Change cover photo"></label>':''}</div>`;
+ const c=GRAD[(pr.color||0)%6],cover=`<div class="pcover" style="background:linear-gradient(135deg,${c[0]},${c[1]},${c[2]})">${pr.cover_url?covMedia(pr.cover_url,isVidUrl(pr.cover_url)):''}</div>`;
  const handle='@'+(pr.username.toLowerCase().replace(/[^a-z0-9._]/g,'')||'user');
  const ava=pr.avatar_url?`<img class="av" src="${esc(pr.avatar_url)}" alt="${esc(pr.username)}">`:`<div class="av" style="background:${COLORS[(pr.color||0)%6]}">${esc(pr.username[0].toUpperCase())}</div>`;
+ if(own&&editing){
+  view.innerHTML=`<div class="ptop"><button data-edit aria-label="Cancel" style="font-size:.95rem;font-weight:700">✕ Cancel</button><b>Edit profile</b><span style="width:70px"></span></div>
+  <h3 class="esec">1. Cover</h3><div class="pcover" id="ecPrev" style="background:linear-gradient(135deg,${c[0]},${c[1]},${c[2]})">${pr.cover_url?covMedia(pr.cover_url,isVidUrl(pr.cover_url)):''}</div>
+  <p style="margin:10px 0 0"><label class="chg">📷 Change cover<input class="sr" type="file" accept="image/*,video/*" data-covfile aria-label="Change cover photo or video"></label></p><p class="ehint">Photo (up to 5 MB) or a video up to 10 seconds.</p>
+  <h3 class="esec">2. Profile picture</h3><div class="erow"><span id="eaPrev">${ava}</span><label class="chg">📷 Change photo<input class="sr" type="file" accept="image/*" data-avfile aria-label="Change profile photo"></label></div>
+  <h3 class="esec">3. Name</h3><input id="pName" value="${esc(pr.username)}" maxlength="30" aria-label="Username">
+  <h3 class="esec">4. Bio</h3><textarea id="pBio" rows="3" maxlength="200" placeholder="Short bio (200 characters)" aria-label="Bio">${esc(pr.bio||'')}</textarea>
+  <button class="btn" id="pSave" style="width:100%;margin-top:16px;padding:13px">Save profile</button>`;return}
  const list=ptab==='liked'?(own?posts.filter(p=>p.likes.some(l=>l.user_id===user.id)):[]):mine;
  const tile=p=>`<button class="tile" data-view="${p.id}" aria-label="Open post">${p.media_url?(p.media_type==='video'?`<video src="${esc(p.media_url)}#t=0.1" preload="metadata" muted playsinline${fs(p.filter)}></video>`:`<img src="${esc(p.media_url)}" alt="" loading="lazy"${fs(p.filter)}>`):art(p.theme)+`<span class="t">${esc(p.title||p.body)}</span>`}<span class="n">${p.media_type==='video'||p.kind!=='post'?'▷ ':'♥ '}${p.likes.length}</span></button>`;
  view.innerHTML=`<div class="ptop">${own?'<button data-edit aria-label="Edit profile">✏</button><button data-act="logout" aria-label="Log out" style="font-size:.95rem;font-weight:700">Log out</button>':'<button data-tab="feed" aria-label="Back">←</button><span></span>'}</div>
- ${cover}<div class="phead"><div><h2>${esc(pr.username)}</h2><div class="handle">${esc(handle)}</div><div class="pst"><div><b>${fing}</b>Following</div><div><b>${fers}</b>Followers</div><div><b>${lk}</b>Likes</div></div></div>${own?`<label class="bigav" style="cursor:pointer">${ava}<span class="avcam">📷</span><input class="sr" type="file" accept="image/*" data-avfile aria-label="Change profile photo"></label>`:`<div class="bigav">${ava}</div>`}</div>
+ ${cover}<div class="phead"><div><h2>${esc(pr.username)}</h2><div class="handle">${esc(handle)}</div><div class="pst"><div><b>${fing}</b>Following</div><div><b>${fers}</b>Followers</div><div><b>${lk}</b>Likes</div></div></div><div class="bigav">${ava}</div></div>
  <p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:14px 0 0">${esc(pr.bio||(own?'Tap ✏ to add a bio.':''))}</p>
- ${own?(editing?`<div class="card" style="padding:14px;margin-top:12px"><input id="pName" value="${esc(pr.username)}" maxlength="30" aria-label="Username" style="margin-bottom:8px"><textarea id="pBio" rows="2" maxlength="200" placeholder="Short bio (200 characters)" aria-label="Bio" style="margin-bottom:8px">${esc(pr.bio||'')}</textarea><button class="btn" id="pSave">Save profile</button></div>`:'<button class="pbtn" data-edit>Edit profile</button>'):`<button class="pbtn ${isF?'':'red'}" data-follow="${id}">${isF?'Following ✓':'Follow'}</button><button class="pbtn" data-msg="${id}" style="margin-top:8px">Message</button>`}
+ ${own?'<button class="pbtn" data-edit>Edit profile</button>':`<button class="pbtn ${isF?'':'red'}" data-follow="${id}">${isF?'Following ✓':'Follow'}</button><button class="pbtn" data-msg="${id}" style="margin-top:8px">Message</button>`}
  <div class="ptabs"><button data-ptab="grid" class="${ptab==='grid'?'on':''}" aria-label="Posts">▦</button><button data-ptab="liked" class="${ptab==='liked'?'on':''}" aria-label="Liked">♡</button></div>
  ${list.length?`<div class="pgrid">${list.map(tile).join('')}</div>`:`<p class="empty">${ptab==='liked'&&!own?'🔒 Liked posts are private.':ptab==='liked'?'Posts you like will show here.':'No posts yet.'}</p>`}`}
 const INFO={about:['About Mela','Mela is a friendly place to share posts, reels and videos with your community.'],privacy:['Privacy','We store your email, username, profile and the content you share. Posts, reels, videos and profiles are public. You can delete your own posts any time.'],terms:['Terms','Be kind and respectful. Do not post illegal, harmful or hateful content. Content that breaks these rules may be removed.']};
@@ -299,7 +323,7 @@ function openAuth(s){signup=s;$('#authTitle').textContent=s?'Create account':'Lo
 
 document.addEventListener('click',async e=>{
  const t=e.target.closest('button');if(!t)return;const d=t.dataset;
- if(d.tab){tab=d.tab;watching=null;pid=null;thread=null;render();scrollTo(0,0)}
+ if(d.tab){editing=false;clearEdit();tab=d.tab;watching=null;pid=null;thread=null;render();scrollTo(0,0)}
  else if(d.prof){pid=d.prof;tab='profile';render();scrollTo(0,0)}
  else if(d.auth)openAuth(d.auth==='signup')
  else if(d.rtab){rtab=d.rtab;render()}
@@ -320,7 +344,7 @@ document.addEventListener('click',async e=>{
  else if(d.thread){thread=d.thread;render()}
  else if(d.notif){const n=notifs.find(x=>x.id===d.notif);if(n&&n.post_id&&posts.some(x=>x.id===n.post_id))openView(n.post_id);else if(n){pid=n.actor_id;tab='profile';render();scrollTo(0,0)}}
  else if('threadBack' in d){thread=null;render()}
- else if('edit' in d){editing=!editing;render()}
+ else if('edit' in d){editing=!editing;clearEdit();render();scrollTo(0,0)}
  else if(d.view)openView(d.view)
  else if(d.act==='logout'){await sb.auth.signOut()}
  else if(d.act==='create'){if(!needLogin())openCreate()}
@@ -343,13 +367,13 @@ document.addEventListener('click',async e=>{
  else if(t.id==='logout'){await sb.auth.signOut()}
  else if(t.id==='create'){openCreate()}
  else if(t.id==='aGoogle'){const r=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(r.error)toast(r.error.message)}
- else if(t.id==='pSave'){const name=$('#pName').value.trim(),bio=$('#pBio').value.trim(),f=$('#pFile')?.files[0];
-  if(name.length<2){toast('Name is too short');return}if(f&&f.size>5242880){toast('Photo must be under 5 MB');return}
+ else if(t.id==='pSave'){const name=$('#pName').value.trim(),bio=$('#pBio').value.trim();
+  if(name.length<2){toast('Name is too short');return}
   t.disabled=true;t.textContent='Saving…';const upd={username:name,bio:bio||null};
-  if(f){const path=`${user.id}/avatar-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const up=await sb.storage.from('media').upload(path,f,{contentType:f.type});
-   if(up.error){toast(up.error.message);t.disabled=false;t.textContent='Save profile';return}upd.avatar_url=sb.storage.from('media').getPublicUrl(path).data.publicUrl}
+  try{if(ea)upd.avatar_url=await upFile(ea,'avatar');if(ec)upd.cover_url=await upFile(ec,'cover')}
+  catch(err){toast(err.message||'Upload failed');t.disabled=false;t.textContent='Save profile';return}
   const {error}=await sb.from('profiles').update(upd).eq('id',user.id);t.disabled=false;t.textContent='Save profile';
-  if(error){toast(error.message);return}Object.assign(me,upd);editing=false;await load();toast('Profile saved')}
+  if(error){toast(error.message);return}Object.assign(me,upd);editing=false;clearEdit();await load();toast('Profile saved')}
  else if(t.id==='aSwitch')openAuth(!signup);else if(t.id==='aCancel')$('#authDlg').close();
  else if(t.id==='nCancel')$('#newDlg').close();
  else if(t.id==='aGo'){
@@ -393,7 +417,7 @@ async function setUser(session){
 }
 sb.auth.onAuthStateChange((ev,s)=>{setTimeout(()=>setUser(s),0)});
 sb.auth.getSession().then(({data})=>setUser(data.session));
-setInterval(()=>{if(!document.hidden&&$('#sv').hidden&&$('#cr').hidden&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))load()},20000);
+setInterval(()=>{if(!document.hidden&&!editing&&$('#sv').hidden&&$('#cr').hidden&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))load()},20000);
 </script>
 </body>
 </html>
