@@ -13,6 +13,7 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1024;--card:#261834;--ink:#f6ecff;--mute:#a995b8;--line:#3a2850;color-scheme:dark}}
 :root[data-theme="dark"]{--bg:#1a1024;--card:#261834;--ink:#f6ecff;--mute:#a995b8;--line:#3a2850;color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif;line-height:1.45}
 button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
@@ -101,6 +102,10 @@ body.tt header,body.tt footer{display:none}body.tt main{padding:0;max-width:none
 .svmedia{position:absolute;inset:0}.svmedia video,.svmedia img{width:100%;height:100%;object-fit:contain}
 .svcap{position:absolute;left:0;right:0;bottom:0;text-align:center;padding:30px 20px calc(24px + env(safe-area-inset-bottom,0px));z-index:3;background:linear-gradient(transparent,rgba(0,0,0,.65));text-shadow:0 1px 4px #000;pointer-events:none}
 .svnav{position:absolute;top:80px;bottom:100px;width:40%;z-index:2}.svnav.l{left:0}.svnav.r{right:0}
+.pcover{position:relative;height:150px;border-radius:16px;overflow:hidden}.pcover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.covbtn{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:99px;padding:6px 12px;font-size:.85rem;font-weight:700;cursor:pointer}.covbtn:focus-within{outline:3px solid #25f4ee}
+.bigav{display:block;position:relative;margin-top:-52px}.phead>div:first-child{padding-top:10px}
+.avcam{position:absolute;right:2px;bottom:2px;width:30px;height:30px;border-radius:50%;background:#fe2c55;color:#fff;display:grid;place-items:center;border:2px solid var(--bg);cursor:pointer;font-size:.9rem}
 img.av{object-fit:cover}
 .hero{background:linear-gradient(135deg,#2a1838,#5b3fd1 55%,#ff8a00);color:#fff;border-radius:22px;padding:34px 22px;margin-bottom:14px}
 .hero h1{margin:0 0 8px;font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.1;letter-spacing:-.03em}.hero p{margin:0 0 16px;opacity:.92;max-width:46ch}
@@ -161,7 +166,7 @@ function av(p){const n=p?.username||'?';if(p?.avatar_url)return `<img class="av"
 function likeBtn(p){const on=user&&p.likes.some(l=>l.user_id===user.id);return `<button class="${on?'on':''}" data-like="${p.id}" aria-pressed="${on}">${on?'♥':'♡'} ${p.likes.length}</button>`}
 
 async function load(){
- const {data,error}=await sb.from('posts').select('*,profiles!posts_user_id_fkey(id,username,color,avatar_url,bio),likes(user_id),comments(id,body,created_at,profiles!comments_user_id_fkey(username))').order('created_at',{ascending:false}).limit(80);
+ const {data,error}=await sb.from('posts').select('*,profiles!posts_user_id_fkey(id,username,color,avatar_url,bio,cover_url),likes(user_id),comments(id,body,created_at,profiles!comments_user_id_fkey(username))').order('created_at',{ascending:false}).limit(80);
  if(error){view.innerHTML=`<p class="empty">Couldn’t load posts: ${esc(error.message)}</p>`;return}
  posts=data;const f=await sb.from('follows').select('follower_id,following_id');follows=f.data||[];const st=await sb.from('stories').select('*,profiles!stories_user_id_fkey(id,username,color,avatar_url)').gt('created_at',new Date(Date.now()-864e5).toISOString()).order('created_at');stories=st.data||[];render();
 }
@@ -189,7 +194,7 @@ function renderVideos(){view.className='wide';
  const l=posts.filter(p=>p.kind==='video');
  view.innerHTML=l.length?`<div class="grid">${l.map(p=>`<button class="vid" data-open="${p.id}"><div class="media">${mh(p)}</div><h3>${esc(p.title||'Untitled')}</h3><small>${esc(p.profiles?.username)} · ${ago(p.created_at)} ago</small></button>`).join('')}</div>`:`<p class="empty">No videos yet. Create the first one.</p>`}
 function profOf(id){if(user&&id===user.id)return me;const x=posts.find(p=>p.user_id===id);return x?x.profiles:(pcache[id]||null)}
-async function fillProfiles(ids){if(!ids.length)return;const {data}=await sb.from('profiles').select('id,username,color,avatar_url,bio').in('id',ids);(data||[]).forEach(x=>pcache[x.id]=x)}
+async function fillProfiles(ids){if(!ids.length)return;const {data}=await sb.from('profiles').select('id,username,color,avatar_url,bio,cover_url').in('id',ids);(data||[]).forEach(x=>pcache[x.id]=x)}
 function updBadge(){const n=user?msgs.filter(m=>m.recipient_id===user.id&&!m.read_at).length:0,b=$('#ibadge');if(!b)return;b.hidden=!n;b.textContent=n>9?'9+':n}
 async function loadMsgs(){if(!user){msgs=[];return}
  const {data}=await sb.from('messages').select('*').or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`).order('created_at').limit(500);msgs=data||[];
@@ -233,6 +238,12 @@ async function crPost(){if(cbusy)return;const body=ccap.trim();if(!body&&!cf){to
   closeCreate();tab=kind==='post'?'feed':kind==='reel'?'reels':'videos';watching=null;await load();toast('Posted!')}
  catch(err){toast(err.message||'Upload failed')}
  cbusy=false;if(!$('#cr').hidden)crRender()}
+async function upImg(f,col){if(!f||!user)return;if(!f.type.startsWith('image/')){toast('Choose an image');return}if(f.size>5242880){toast('Image must be under 5 MB');return}
+ toast('Uploading…');const path=`${user.id}/${col==='avatar_url'?'avatar':'cover'}-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+ const up=await sb.storage.from('media').upload(path,f,{contentType:f.type});if(up.error){toast(up.error.message);return}
+ const url=sb.storage.from('media').getPublicUrl(path).data.publicUrl;const {error}=await sb.from('profiles').update({[col]:url}).eq('id',user.id);if(error){toast(error.message);return}
+ me[col]=url;await load();toast(col==='avatar_url'?'Profile photo updated':'Cover updated')}
+document.addEventListener('change',e=>{if(e.target.dataset.avfile!==undefined){upImg(e.target.files[0],'avatar_url');e.target.value=''}else if(e.target.dataset.covfile!==undefined){upImg(e.target.files[0],'cover_url');e.target.value=''}});
 document.addEventListener('change',e=>{if(e.target.dataset.cfile!==undefined){crPick(e.target.files[0]);e.target.value=''}});
 document.addEventListener('input',e=>{if(e.target.id==='cCap')ccap=e.target.value;if(e.target.id==='cTitle')ctitle=e.target.value});
 function updNbadge(){const n=user?notifs.filter(x=>!x.read_at).length:0,b=$('#nbadge');if(!b)return;b.hidden=!n;b.textContent=n>9?'9+':n}
@@ -270,14 +281,15 @@ function renderProfile(){view.className='';const id=pid||user?.id;
  const own=user&&id===user.id,mine=posts.filter(p=>p.user_id===id),lk=mine.reduce((n,p)=>n+p.likes.length,0);
  const fers=follows.filter(f=>f.following_id===id).length,fing=follows.filter(f=>f.follower_id===id).length;
  const isF=user&&follows.some(f=>f.follower_id===user.id&&f.following_id===id);
+ const c=GRAD[(pr.color||0)%6],cover=`<div class="pcover" style="background:linear-gradient(135deg,${c[0]},${c[1]},${c[2]})">${pr.cover_url?`<img src="${esc(pr.cover_url)}" alt="Cover">`:''}${own?'<label class="covbtn">📷 Cover<input class="sr" type="file" accept="image/*" data-covfile aria-label="Change cover photo"></label>':''}</div>`;
  const handle='@'+(pr.username.toLowerCase().replace(/[^a-z0-9._]/g,'')||'user');
  const ava=pr.avatar_url?`<img class="av" src="${esc(pr.avatar_url)}" alt="${esc(pr.username)}">`:`<div class="av" style="background:${COLORS[(pr.color||0)%6]}">${esc(pr.username[0].toUpperCase())}</div>`;
  const list=ptab==='liked'?(own?posts.filter(p=>p.likes.some(l=>l.user_id===user.id)):[]):mine;
  const tile=p=>`<button class="tile" data-view="${p.id}" aria-label="Open post">${p.media_url?(p.media_type==='video'?`<video src="${esc(p.media_url)}#t=0.1" preload="metadata" muted playsinline${fs(p.filter)}></video>`:`<img src="${esc(p.media_url)}" alt="" loading="lazy"${fs(p.filter)}>`):art(p.theme)+`<span class="t">${esc(p.title||p.body)}</span>`}<span class="n">${p.media_type==='video'||p.kind!=='post'?'▷ ':'♥ '}${p.likes.length}</span></button>`;
  view.innerHTML=`<div class="ptop">${own?'<button data-edit aria-label="Edit profile">✏</button><button data-act="logout" aria-label="Log out" style="font-size:.95rem;font-weight:700">Log out</button>':'<button data-tab="feed" aria-label="Back">←</button><span></span>'}</div>
- <div class="phead"><div><h2>${esc(pr.username)}</h2><div class="handle">${esc(handle)}</div><div class="pst"><div><b>${fing}</b>Following</div><div><b>${fers}</b>Followers</div><div><b>${lk}</b>Likes</div></div></div><div class="bigav">${ava}</div></div>
+ ${cover}<div class="phead"><div><h2>${esc(pr.username)}</h2><div class="handle">${esc(handle)}</div><div class="pst"><div><b>${fing}</b>Following</div><div><b>${fers}</b>Followers</div><div><b>${lk}</b>Likes</div></div></div>${own?`<label class="bigav" style="cursor:pointer">${ava}<span class="avcam">📷</span><input class="sr" type="file" accept="image/*" data-avfile aria-label="Change profile photo"></label>`:`<div class="bigav">${ava}</div>`}</div>
  <p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:14px 0 0">${esc(pr.bio||(own?'Tap ✏ to add a bio.':''))}</p>
- ${own?(editing?`<div class="card" style="padding:14px;margin-top:12px"><input id="pName" value="${esc(pr.username)}" maxlength="30" aria-label="Username" style="margin-bottom:8px"><textarea id="pBio" rows="2" maxlength="200" placeholder="Short bio (200 characters)" aria-label="Bio" style="margin-bottom:8px">${esc(pr.bio||'')}</textarea><label style="display:block;margin-bottom:8px;color:var(--mute);font-size:.9rem">Profile photo: <input id="pFile" type="file" accept="image/*"></label><button class="btn" id="pSave">Save profile</button></div>`:'<button class="pbtn" data-edit>Edit profile</button>'):`<button class="pbtn ${isF?'':'red'}" data-follow="${id}">${isF?'Following ✓':'Follow'}</button><button class="pbtn" data-msg="${id}" style="margin-top:8px">Message</button>`}
+ ${own?(editing?`<div class="card" style="padding:14px;margin-top:12px"><input id="pName" value="${esc(pr.username)}" maxlength="30" aria-label="Username" style="margin-bottom:8px"><textarea id="pBio" rows="2" maxlength="200" placeholder="Short bio (200 characters)" aria-label="Bio" style="margin-bottom:8px">${esc(pr.bio||'')}</textarea><button class="btn" id="pSave">Save profile</button></div>`:'<button class="pbtn" data-edit>Edit profile</button>'):`<button class="pbtn ${isF?'':'red'}" data-follow="${id}">${isF?'Following ✓':'Follow'}</button><button class="pbtn" data-msg="${id}" style="margin-top:8px">Message</button>`}
  <div class="ptabs"><button data-ptab="grid" class="${ptab==='grid'?'on':''}" aria-label="Posts">▦</button><button data-ptab="liked" class="${ptab==='liked'?'on':''}" aria-label="Liked">♡</button></div>
  ${list.length?`<div class="pgrid">${list.map(tile).join('')}</div>`:`<p class="empty">${ptab==='liked'&&!own?'🔒 Liked posts are private.':ptab==='liked'?'Posts you like will show here.':'No posts yet.'}</p>`}`}
 const INFO={about:['About Mela','Mela is a friendly place to share posts, reels and videos with your community.'],privacy:['Privacy','We store your email, username, profile and the content you share. Posts, reels, videos and profiles are public. You can delete your own posts any time.'],terms:['Terms','Be kind and respectful. Do not post illegal, harmful or hateful content. Content that breaks these rules may be removed.']};
@@ -331,7 +343,7 @@ document.addEventListener('click',async e=>{
  else if(t.id==='logout'){await sb.auth.signOut()}
  else if(t.id==='create'){openCreate()}
  else if(t.id==='aGoogle'){const r=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(r.error)toast(r.error.message)}
- else if(t.id==='pSave'){const name=$('#pName').value.trim(),bio=$('#pBio').value.trim(),f=$('#pFile').files[0];
+ else if(t.id==='pSave'){const name=$('#pName').value.trim(),bio=$('#pBio').value.trim(),f=$('#pFile')?.files[0];
   if(name.length<2){toast('Name is too short');return}if(f&&f.size>5242880){toast('Photo must be under 5 MB');return}
   t.disabled=true;t.textContent='Saving…';const upd={username:name,bio:bio||null};
   if(f){const path=`${user.id}/avatar-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const up=await sb.storage.from('media').upload(path,f,{contentType:f.type});
@@ -376,7 +388,7 @@ document.addEventListener('input',e=>{if(e.target.id==='search'){q=e.target.valu
 document.addEventListener('click',e=>{const r=e.target.closest('[data-reel]');if(!r||e.target.closest('button'))return;const v=r.querySelector('video');if(!v)return;if(v.muted)v.muted=false;else v.paused?v.play():v.pause()});
 async function setUser(session){
  user=session?.user||null;me=null;msgs=[];notifs=[];thread=null;if(chan){sb.removeChannel(chan);chan=null}
- if(user){const {data}=await sb.from('profiles').select('id,username,color,avatar_url,bio').eq('id',user.id).single();me=data;await loadMsgs();await loadNotifs();subscribe()}
+ if(user){const {data}=await sb.from('profiles').select('id,username,color,avatar_url,bio,cover_url').eq('id',user.id).single();me=data;await loadMsgs();await loadNotifs();subscribe()}
  await load();
 }
 sb.auth.onAuthStateChange((ev,s)=>{setTimeout(()=>setUser(s),0)});
