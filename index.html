@@ -96,12 +96,12 @@ function av(p){const n=p?.username||'?';return `<div class="av" style="backgroun
 function likeBtn(p){const on=user&&p.likes.some(l=>l.user_id===user.id);return `<button class="${on?'on':''}" data-like="${p.id}" aria-pressed="${on}">${on?'♥':'♡'} ${p.likes.length}</button>`}
 
 async function load(){
- const {data,error}=await sb.from('posts').select('*,profiles(username,color),likes(user_id),comments(id,body,created_at,profiles(username))').order('created_at',{ascending:false}).limit(80);
+ const {data,error}=await sb.from('posts').select('*,profiles!posts_user_id_fkey(username,color),likes(user_id),comments(id,body,created_at,profiles!comments_user_id_fkey(username))').order('created_at',{ascending:false}).limit(80);
  if(error){view.innerHTML=`<p class="empty">Couldn’t load posts: ${esc(error.message)}</p>`;return}
  posts=data;render();
 }
 function topbar(){
- $('#me').innerHTML=user?`${av(me)}<b>${esc(me?.username||'')}</b><button class="pill" id="create">+ Create</button><button class="ghost" id="logout">Log out</button>`:`<button class="ghost" id="login">Log in</button><button class="pill" id="signupBtn">Sign up</button>`;
+ $('#me').innerHTML=user?`<button class="ghost" data-tab="profile" style="display:flex;gap:8px;align-items:center;padding:4px 12px 4px 4px" aria-label="My profile">${av(me)}<b>${esc(me?.username||'')}</b></button><button class="pill" id="create">+ Create</button><button class="ghost" id="logout">Log out</button>`:`<button class="ghost" id="login">Log in</button><button class="pill" id="signupBtn">Sign up</button>`;
 }
 function cmtHtml(p){return `<div class="cmts" hidden>${p.comments.map(c=>`<p><b>${esc(c.profiles?.username||'User')}</b> ${esc(c.body)}</p>`).join('')}<form data-form="${p.id}"><input placeholder="Write a comment…" aria-label="Comment" required maxlength="500"><button class="btn">Send</button></form></div>`}
 function renderFeed(){view.className='';const l=posts.filter(p=>p.kind==='post');
@@ -112,7 +112,11 @@ function renderVideos(){view.className='wide';
  if(watching){const p=posts.find(x=>x.id===watching);if(p){view.innerHTML=`<div style="max-width:860px;margin:0 auto"><button class="btn" data-back>← All videos</button><div class="media" style="border-radius:16px;margin-top:12px">${mh(p)}</div><h2 style="margin:12px 0 4px">${esc(p.title||'Untitled')}</h2><small style="color:var(--mute)">${ago(p.created_at)} ago</small><p style="white-space:pre-wrap">${esc(p.body)}</p><div class="row">${av(p.profiles)}<b>${esc(p.profiles?.username)}</b><span style="margin-left:auto"></span>${likeBtn(p)}</div><article class="card">${cmtHtml(p).replace('hidden','')}</article></div>`;return}watching=null}
  const l=posts.filter(p=>p.kind==='video');
  view.innerHTML=l.length?`<div class="grid">${l.map(p=>`<button class="vid" data-open="${p.id}"><div class="media">${mh(p)}</div><h3>${esc(p.title||'Untitled')}</h3><small>${esc(p.profiles?.username)} · ${ago(p.created_at)} ago</small></button>`).join('')}</div>`:`<p class="empty">No videos yet. Create the first one.</p>`}
-function render(){topbar();document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));({feed:renderFeed,reels:renderReels,videos:renderVideos})[tab]()}
+function renderProfile(){view.className='';
+ if(!user){view.innerHTML='<p class="empty">Log in to see your profile.</p>';return}
+ const mine=posts.filter(p=>p.user_id===user.id),lk=mine.reduce((n,p)=>n+p.likes.length,0);
+ view.innerHTML=`<div class="card" style="padding:18px;text-align:center"><div style="display:flex;justify-content:center"><div class="av" style="width:84px;height:84px;font-size:2rem;background:${COLORS[(me?.color||0)%6]}">${esc((me?.username||'?')[0].toUpperCase())}</div></div><p style="color:var(--mute);margin:8px 0">${esc(user.email||'')}</p><div class="row" style="justify-content:center"><input id="pName" value="${esc(me?.username||'')}" maxlength="30" aria-label="Username" style="max-width:220px"><button class="btn" id="pSave">Save name</button></div><p><b>${mine.length}</b> posts · <b>${lk}</b> likes</p></div>`+(mine.length?mine.map(p=>`<article class="card"><div class="txt" style="padding-top:12px">${esc(p.title?p.title+' — ':'')}${esc(p.body)}</div>${p.media_url?`<div class="media">${mh(p)}</div>`:''}<div class="acts"><button disabled>♥ ${p.likes.length}</button><button disabled>💬 ${p.comments.length}</button><button data-del="${p.id}" style="margin-left:auto">Delete</button></div></article>`).join(''):'<p class="empty">You haven’t posted yet.</p>')}
+function render(){topbar();document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));({feed:renderFeed,reels:renderReels,videos:renderVideos,profile:renderProfile})[tab]()}
 function needLogin(){if(user)return false;openAuth(false);toast('Log in first');return true}
 function openAuth(s){signup=s;$('#authTitle').textContent=s?'Create account':'Log in';$('#aName').hidden=!s;$('#aGo').textContent=s?'Sign up':'Log in';$('#aSwitch').textContent=s?'I have an account':'Create an account';$('#authDlg').showModal()}
 
@@ -130,7 +134,8 @@ document.addEventListener('click',async e=>{
  else if(t.id==='login')openAuth(false);else if(t.id==='signupBtn')openAuth(true);
  else if(t.id==='logout'){await sb.auth.signOut()}
  else if(t.id==='create'){$('#newDlg').showModal()}
- else if(t.id==='aGoogle'){const r=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:'https://aqsa05202-create.github.io/MELE/'}});if(r.error)toast(r.error.message)}
+ else if(t.id==='aGoogle'){const r=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(r.error)toast(r.error.message)}
+ else if(t.id==='pSave'){const name=$('#pName').value.trim();if(name.length<2){toast('Name is too short');return}const {error}=await sb.from('profiles').update({username:name}).eq('id',user.id);if(error){toast(error.message);return}me.username=name;await load();toast('Saved')}
  else if(t.id==='aSwitch')openAuth(!signup);else if(t.id==='aCancel')$('#authDlg').close();
  else if(t.id==='nCancel')$('#newDlg').close();
  else if(t.id==='aGo'){
@@ -172,7 +177,7 @@ async function setUser(session){
 }
 sb.auth.onAuthStateChange((ev,s)=>{setTimeout(()=>setUser(s),0)});
 sb.auth.getSession().then(({data})=>setUser(data.session));
-setInterval(()=>{if(!document.hidden&&!document.querySelector('dialog[open]')&&!document.activeElement?.closest('form'))load()},20000);
+setInterval(()=>{if(!document.hidden&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))load()},20000);
 </script>
 </body>
 </html>
