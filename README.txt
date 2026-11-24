@@ -1,2 +1,2 @@
-Mela v10: Activity (notifications for likes, comments, new followers) with bell + realtime.
+Mela v11: Stories (24 ghante), story viewer, Add story from + or Create > Story.
 Sirf index.html upload karein (GitHub ya Netlify).

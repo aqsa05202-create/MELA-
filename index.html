@@ -92,6 +92,15 @@ body.tt header,body.tt footer{display:none}body.tt main{padding:0;max-width:none
 .crpost{background:#fe2c55;color:#fff;font-weight:800;padding:14px;border-radius:12px;width:calc(100% - 28px);max-width:532px;margin:auto auto 14px}
 .upb{height:6px;background:#333;border-radius:3px;overflow:hidden}.upb i{display:block;height:100%;width:40%;background:#fe2c55;animation:slide 1.1s linear infinite}@keyframes slide{from{margin-left:-40%}to{margin-left:100%}}
 #nbadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;font-size:.65rem;padding:0 4px}.bell{position:relative;font-size:1.1rem;padding:6px 12px}
+.stories{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}.stories button{display:grid;justify-items:center;gap:4px;font-size:.78rem;flex:none;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sring{padding:3px;border-radius:50%;background:conic-gradient(#ff8a00,#fe2c55,#5b3fd1,#ff8a00);position:relative}.sring.seen{background:var(--line)}.sring .av{width:58px;height:58px;font-size:1.3rem;border:3px solid var(--bg)}
+.sring .sp{position:absolute;right:-2px;bottom:-2px;width:22px;height:22px;border-radius:50%;background:#fe2c55;color:#fff;display:grid;place-items:center;font-style:normal;font-weight:800;border:2px solid var(--bg);line-height:1}
+#sv{position:fixed;inset:0;z-index:70;background:#000;color:#fff}#sv[hidden]{display:none}
+.svbars{position:absolute;top:calc(8px + env(safe-area-inset-top,0px));left:8px;right:8px;display:flex;gap:4px;z-index:3}.svbars span{flex:1;height:3px;background:rgba(255,255,255,.35);border-radius:2px;overflow:hidden}.svbars i{display:block;height:100%;background:#fff;width:0}.svbars i.run{animation:fill 5s linear forwards}@keyframes fill{to{width:100%}}
+.svhead{position:absolute;top:calc(20px + env(safe-area-inset-top,0px));left:10px;right:10px;display:flex;gap:10px;align-items:center;z-index:3;text-shadow:0 1px 4px rgba(0,0,0,.6)}.svhead .av{width:36px;height:36px}.svhead button{color:#fff;font-size:1.3rem;padding:6px 10px}
+.svmedia{position:absolute;inset:0}.svmedia video,.svmedia img{width:100%;height:100%;object-fit:contain}
+.svcap{position:absolute;left:0;right:0;bottom:0;text-align:center;padding:30px 20px calc(24px + env(safe-area-inset-bottom,0px));z-index:3;background:linear-gradient(transparent,rgba(0,0,0,.65));text-shadow:0 1px 4px #000;pointer-events:none}
+.svnav{position:absolute;top:80px;bottom:100px;width:40%;z-index:2}.svnav.l{left:0}.svnav.r{right:0}
 img.av{object-fit:cover}
 .hero{background:linear-gradient(135deg,#2a1838,#5b3fd1 55%,#ff8a00);color:#fff;border-radius:22px;padding:34px 22px;margin-bottom:14px}
 .hero h1{margin:0 0 8px;font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.1;letter-spacing:-.03em}.hero p{margin:0 0 16px;opacity:.92;max-width:46ch}
@@ -129,6 +138,7 @@ footer{max-width:640px;margin:10px auto 30px;padding:0 16px;color:var(--mute);fo
   <div class="row" style="justify-content:space-between"><button class="ghost" id="aSwitch">Create an account</button><span><button class="ghost" id="aCancel">Cancel</button> <button class="btn" id="aGo">Log in</button></span></div>
 </dialog>
 <div id="cr" hidden></div>
+<div id="sv" hidden></div>
 
 <script>
 const SUPABASE_URL='https://fknsfzecwtdchhtskidf.supabase.co';
@@ -138,7 +148,8 @@ const COLORS=['#ff8a00','#0f8b7f','#c2185b','#5b3fd1','#d1a400','#1b6fd1'];
 const GRAD=[['#ff8a00','#c2185b','#5b3fd1'],['#0f8b7f','#1b6fd1','#2a1838'],['#d1a400','#ff8a00','#c2185b'],['#5b3fd1','#0f8b7f','#ff8a00'],['#c2185b','#2a1838','#1b6fd1'],['#1b6fd1','#34d1c0','#d1a400']];
 const $=s=>document.querySelector(s),view=$('#view');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let notifs=[],cf=null,ck='reel',curl=null,ccap='',ctitle='',ctext=false,cbusy=false,msgs=[],pcache={},thread=null,chan=null,ptab='grid',editing=false,rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
+let stories=[],sgroups=[],sv={gi:0,si:0},stT=null,seenSet={},cpref='',notifs=[],cf=null,ck='reel',curl=null,ccap='',ctitle='',ctext=false,cbusy=false,msgs=[],pcache={},thread=null,chan=null,ptab='grid',editing=false,rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
+try{seenSet=JSON.parse(localStorage.getItem('mela-seen')||'{}')}catch(e){}
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
 function ago(d){const s=(Date.now()-new Date(d))/1000;if(s<60)return'now';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'}
 function art(g){const c=GRAD[g%6];return `<div class="art" style="background:linear-gradient(135deg,${c[0]},${c[1]})"><span style="width:55%;aspect-ratio:1;left:-8%;top:-10%;background:${c[2]};opacity:.55"></span><span style="width:40%;aspect-ratio:1;right:-6%;bottom:-8%;background:${c[0]};opacity:.7;animation-delay:-3s"></span></div>`}
@@ -149,14 +160,14 @@ function likeBtn(p){const on=user&&p.likes.some(l=>l.user_id===user.id);return `
 async function load(){
  const {data,error}=await sb.from('posts').select('*,profiles!posts_user_id_fkey(id,username,color,avatar_url,bio),likes(user_id),comments(id,body,created_at,profiles!comments_user_id_fkey(username))').order('created_at',{ascending:false}).limit(80);
  if(error){view.innerHTML=`<p class="empty">Couldn’t load posts: ${esc(error.message)}</p>`;return}
- posts=data;const f=await sb.from('follows').select('follower_id,following_id');follows=f.data||[];render();
+ posts=data;const f=await sb.from('follows').select('follower_id,following_id');follows=f.data||[];const st=await sb.from('stories').select('*,profiles!stories_user_id_fkey(id,username,color,avatar_url)').gt('created_at',new Date(Date.now()-864e5).toISOString()).order('created_at');stories=st.data||[];render();
 }
 function topbar(){
  $('#me').innerHTML=user?`<button class="ghost bell" data-tab="notifs" aria-label="Notifications">🔔<i class="badge" id="nbadge" hidden></i></button><button class="ghost" data-tab="profile" style="display:flex;gap:8px;align-items:center;padding:4px 12px 4px 4px" aria-label="My profile">${av(me)}<b>${esc(me?.username||'')}</b></button><button class="pill" id="create">+ Create</button><button class="ghost" id="logout">Log out</button>`:`<button class="ghost" id="login">Log in</button><button class="pill" id="signupBtn">Sign up</button>`;
 }
 function cmtHtml(p){return `<div class="cmts" hidden>${p.comments.map(c=>`<p><b>${esc(c.profiles?.username||'User')}</b> ${esc(c.body)}</p>`).join('')}<form data-form="${p.id}"><input placeholder="Write a comment…" aria-label="Comment" required maxlength="500"><button class="btn">Send</button></form></div>`}
 function renderFeed(){view.className='';const l=posts.filter(p=>p.kind==='post'&&(!q||(p.body+' '+(p.profiles?.username||'')).toLowerCase().includes(q)));
- view.innerHTML=heroHtml()+`<input id="search" placeholder="Search posts and people…" aria-label="Search" value="${esc(q)}" style="margin-bottom:14px">`+(l.length?l.map(p=>`<article class="card"><div class="ph"><button data-prof="${p.user_id}" style="display:flex;gap:10px;align-items:center;text-align:left" aria-label="Open profile">${av(p.profiles)}<span><b style="display:block;line-height:1.1">${esc(p.profiles?.username)}</b><small style="color:var(--mute)">${ago(p.created_at)}</small></span></button>${user&&p.user_id===user.id?`<button class="ghost" data-del="${p.id}" style="margin-left:auto" aria-label="Delete post">Delete</button>`:''}</div><div class="txt">${esc(p.body)}</div><div class="media">${mh(p)}</div><div class="acts">${likeBtn(p)}<button data-cm>💬 ${p.comments.length}</button><button data-share="${p.id}">↗ Share</button></div>${cmtHtml(p)}</article>`).join(''):`<p class="empty">${q?'No results.':'No posts yet. Log in and tap + Create to share the first one.'}</p>`)}
+ view.innerHTML=heroHtml()+storiesBar()+`<input id="search" placeholder="Search posts and people…" aria-label="Search" value="${esc(q)}" style="margin-bottom:14px">`+(l.length?l.map(p=>`<article class="card"><div class="ph"><button data-prof="${p.user_id}" style="display:flex;gap:10px;align-items:center;text-align:left" aria-label="Open profile">${av(p.profiles)}<span><b style="display:block;line-height:1.1">${esc(p.profiles?.username)}</b><small style="color:var(--mute)">${ago(p.created_at)}</small></span></button>${user&&p.user_id===user.id?`<button class="ghost" data-del="${p.id}" style="margin-left:auto" aria-label="Delete post">Delete</button>`:''}</div><div class="txt">${esc(p.body)}</div><div class="media">${mh(p)}</div><div class="acts">${likeBtn(p)}<button data-cm>💬 ${p.comments.length}</button><button data-share="${p.id}">↗ Share</button></div>${cmtHtml(p)}</article>`).join(''):`<p class="empty">${q?'No results.':'No posts yet. Log in and tap + Create to share the first one.'}</p>`)}
 function heroHtml(){return user?'':`<section class="hero"><h1>Share moments.<br>Watch reels. Build your community.</h1><p>Mela brings posts, short reels and videos together in one friendly place.</p><button class="pill" data-auth="signup">Join free</button> <button class="ghost" data-auth="login">Log in</button></section><div class="feats"><div><b>Posts</b>Share updates with photos</div><div><b>Reels</b>Short vertical videos</div><div><b>Videos</b>Longer videos to watch</div></div>`}
 function renderReels(){view.className='';
  const l=posts.filter(p=>p.kind==='reel'&&(rtab==='foryou'||(user&&follows.some(f=>f.follower_id===user.id&&f.following_id===p.user_id))));
@@ -200,13 +211,13 @@ function renderThread(){const keep=document.querySelector('#dmf input')?.value||
 document.addEventListener('submit',async e=>{if(e.target.id!=='dmf')return;e.preventDefault();const i=e.target.querySelector('input'),body=i.value.trim();if(!body||!thread)return;i.value='';
  const {data,error}=await sb.from('messages').insert({sender_id:user.id,recipient_id:thread,body}).select().single();
  if(error){toast(error.message);i.value=body;return}if(!msgs.some(x=>x.id===data.id))msgs.push(data);renderThread();$('#dmf input').focus()});
-function openCreate(){cf=null;curl=null;ctext=false;ccap='';ctitle='';cbusy=false;crRender();$('#cr').hidden=false;document.body.style.overflow='hidden'}
+function openCreate(pref){cpref=pref||'';cf=null;curl=null;ctext=false;ccap='';ctitle='';cbusy=false;crRender();$('#cr').hidden=false;document.body.style.overflow='hidden'}
 function closeCreate(){$('#cr').hidden=true;document.body.style.overflow='';if(curl)URL.revokeObjectURL(curl);cf=null;curl=null;ctext=false}
 function crPick(f){if(!f)return;if(f.size>52428800){toast('File is over 50 MB');return}cf=f;curl=URL.createObjectURL(f);
- if(f.type.startsWith('video')){const v=document.createElement('video');v.preload='metadata';v.onloadedmetadata=()=>{ck=v.duration>60?'video':'reel';crRender()};v.onerror=()=>{ck='reel';crRender()};v.src=curl}else{ck='post';crRender()}}
+ if(f.type.startsWith('video')){const v=document.createElement('video');v.preload='metadata';v.onloadedmetadata=()=>{ck=cpref==='story'?'story':v.duration>60?'video':'reel';crRender()};v.onerror=()=>{ck=cpref==='story'?'story':'reel';crRender()};v.src=curl}else{ck=cpref==='story'?'story':'post';crRender()}}
 function crRender(){const c=$('#cr');
  if(!cf&&!ctext){c.innerHTML=`<div class="crtop"><button data-cr="close" aria-label="Close">✕</button><span>Create</span><span style="width:44px"></span></div><div class="crgrid"><label><span class="ic">⬆</span>Upload<input class="sr" type="file" accept="video/*,image/*" data-cfile></label><label><span class="ic">⏺</span>Record video<input class="sr" type="file" accept="video/*" capture="environment" data-cfile></label><label><span class="ic">📷</span>Take photo<input class="sr" type="file" accept="image/*" capture="environment" data-cfile></label><button data-cr="text"><span class="ic">Aa</span>Text post</button></div><p style="text-align:center;color:#888;padding:0 20px 20px;font-size:.85rem">Videos up to 60 seconds become Reels. Files up to 50 MB.</p>`;return}
- const vid=cf&&cf.type.startsWith('video'),chips=vid?`<button class="chip ${ck==='reel'?'on':''}" data-ck="reel">Reel</button><button class="chip ${ck==='video'?'on':''}" data-ck="video">Video</button>`:`<button class="chip on" data-ck="post">Feed post</button>`;
+ const vid=cf&&cf.type.startsWith('video'),chips=vid?`<button class="chip ${ck==='reel'?'on':''}" data-ck="reel">Reel</button><button class="chip ${ck==='video'?'on':''}" data-ck="video">Video</button><button class="chip ${ck==='story'?'on':''}" data-ck="story">Story</button>`:(cf?`<button class="chip ${ck==='post'?'on':''}" data-ck="post">Feed post</button><button class="chip ${ck==='story'?'on':''}" data-ck="story">Story</button>`:`<button class="chip on" data-ck="post">Feed post</button>`);
  const prev=cf?(vid?`<video src="${curl}#t=0.1" autoplay muted loop playsinline></video>`:`<img src="${curl}" alt="Preview">`):`<div style="height:100%;display:grid;place-items:center;font-size:2rem">Aa</div>`;
  c.innerHTML=`<div class="crtop"><button data-cr="back" aria-label="Back">←</button><span>New post</span><span style="width:44px"></span></div><div class="crbody"><div class="crprev">${prev}</div><textarea id="cCap" rows="6" maxlength="300" placeholder="Describe your post… add #hashtags" aria-label="Caption" style="flex:1;height:150px;resize:none"></textarea></div>${ck==='video'?'<div class="crbody" style="padding-top:0"><input type="text" id="cTitle" placeholder="Video title" maxlength="80" aria-label="Video title"></div>':''}<div class="crbody" style="padding-top:0;flex-wrap:wrap;align-items:center"><b style="width:100%">Post to</b>${chips}</div><div style="flex:1"></div>${cbusy?'<div class="crbody"><div style="width:100%"><div class="upb"><i></i></div><p style="text-align:center;color:#aaa">Uploading… please wait</p></div></div>':'<button class="crpost" data-cr="post">Post</button>'}`;
  $('#cCap').value=ccap;const t=$('#cTitle');if(t)t.value=ctitle}
@@ -214,6 +225,7 @@ async function crPost(){if(cbusy)return;const body=ccap.trim();if(!body&&!cf){to
  const kind=ck,title=kind==='video'?(ctitle.trim()||null):null;let media_url=null,media_type=null;cbusy=true;crRender();
  try{if(cf){const path=`${user.id}/${Date.now()}-${cf.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const up=await sb.storage.from('media').upload(path,cf,{contentType:cf.type});if(up.error)throw up.error;
    media_url=sb.storage.from('media').getPublicUrl(path).data.publicUrl;media_type=cf.type.startsWith('video')?'video':'image'}
+  if(kind==='story'){if(!cf)throw new Error('Stories need a photo or video');const e2=(await sb.from('stories').insert({user_id:user.id,media_url,media_type,caption:body||null})).error;if(e2)throw e2;closeCreate();tab='feed';await load();toast('Story posted');cbusy=false;return}
   const {error}=await sb.from('posts').insert({user_id:user.id,kind,title,body:body||title||'New post',media_url,media_type,theme:Math.floor(Math.random()*6)});if(error)throw error;
   closeCreate();tab=kind==='post'?'feed':kind==='reel'?'reels':'videos';watching=null;await load();toast('Posted!')}
  catch(err){toast(err.message||'Upload failed')}
@@ -232,6 +244,20 @@ function renderNotifs(){view.className='';
  view.innerHTML='<h2 style="margin:0 0 12px">Activity</h2>'+(notifs.length?notifs.map(n=>{const pr=profOf(n.actor_id)||{username:'Someone'};
   return `<button class="card" data-notif="${n.id}" style="display:flex;gap:12px;align-items:center;width:100%;padding:12px;text-align:left;${n.read_at?'':'border-color:var(--accent)'}">${av(pr)}<span style="flex:1;min-width:0;overflow-wrap:anywhere"><b>${esc(pr.username)}</b> ${esc(txt(n))}<small style="display:block;color:var(--mute)">${ago(n.created_at)}</small></span></button>`}).join(''):'<p class="empty">No activity yet. Likes, comments and new followers show up here.</p>');
  markNotifsRead()}
+function storiesBar(){const g={};stories.forEach(x=>{(g[x.user_id]=g[x.user_id]||{id:x.user_id,pr:x.profiles,items:[]}).items.push(x)});
+ const seen=u=>u.items.every(i=>seenSet[i.id]),mineId=user?.id,list=Object.values(g).sort((a,b)=>((b.id===mineId)-(a.id===mineId))||(seen(a)-seen(b)));sgroups=list;
+ if(!user&&!list.length)return '';
+ return `<div class="stories">${user?`<button data-story-add aria-label="Add story"><span class="sring seen">${av(me)}<i class="sp">+</i></span>Add story</button>`:''}${list.map((u,i)=>`<button data-story="${i}"><span class="sring ${seen(u)?'seen':''}">${av(u.pr)}</span>${u.id===mineId?'Your story':esc(u.pr?.username||'User')}</button>`).join('')}</div>`}
+function openStory(gi){const g=sgroups[gi];if(!g)return;const u=g.items.findIndex(i=>!seenSet[i.id]);sv={gi,si:u<0?0:u};$('#sv').hidden=false;document.body.style.overflow='hidden';showStory()}
+function closeStory(){clearTimeout(stT);const v=$('#sv video');if(v)v.pause();$('#sv').hidden=true;$('#sv').innerHTML='';document.body.style.overflow='';render()}
+function nextStory(){const g=sgroups[sv.gi];if(!g)return closeStory();if(sv.si+1<g.items.length)sv.si++;else{sv.gi++;sv.si=0;if(sv.gi>=sgroups.length)return closeStory()}showStory()}
+function prevStory(){if(sv.si>0)sv.si--;else if(sv.gi>0){sv.gi--;sv.si=0}showStory()}
+function showStory(){clearTimeout(stT);const g=sgroups[sv.gi];if(!g)return closeStory();const it=g.items[sv.si],vid=it.media_type==='video',own=user&&g.id===user.id;
+ seenSet[it.id]=1;try{localStorage.setItem('mela-seen',JSON.stringify(seenSet))}catch(e){}
+ $('#sv').innerHTML=`<div class="svbars">${g.items.map((_,i)=>`<span><i ${i<sv.si?'style="width:100%"':i===sv.si&&!vid?'class="run"':''}></i></span>`).join('')}</div><div class="svhead">${av(g.pr)}<b>${esc(g.pr?.username||'User')}</b><small>${ago(it.created_at)}</small><span style="flex:1"></span>${own?'<button data-sdel aria-label="Delete story">🗑</button>':''}<button data-sclose aria-label="Close">✕</button></div><div class="svmedia">${vid?`<video src="${esc(it.media_url)}" autoplay playsinline></video>`:`<img src="${esc(it.media_url)}" alt="Story">`}</div>${it.caption?`<div class="svcap">${esc(it.caption)}</div>`:''}<button class="svnav l" data-sprev aria-label="Previous"></button><button class="svnav r" data-snext aria-label="Next"></button>`;
+ const v=$('#sv video');
+ if(vid){v.onended=nextStory;v.ontimeupdate=()=>{const b=$('#sv .svbars span:nth-child('+(sv.si+1)+') i');if(b&&v.duration)b.style.width=(v.currentTime/v.duration*100)+'%'};v.play().catch(()=>{v.muted=true;v.play().catch(()=>{})})}
+ else stT=setTimeout(nextStory,5000)}
 function openView(id){const p=posts.find(x=>x.id===id);if(!p)return;const own=user&&p.user_id===user.id;
  $('#pvB').innerHTML=`<div class="media" style="border-radius:12px">${mh(p)}</div><p style="white-space:pre-wrap;overflow-wrap:anywhere"><b>${esc(p.title||'')}</b> ${esc(p.body)}</p><div class="acts" style="border:0;padding:0">${likeBtn(p)}<button data-cmsheet="${p.id}">💬 ${p.comments.length}</button>${own?`<button data-del="${p.id}" style="margin-left:auto">Delete</button>`:''}</div>`;
  if(!$('#pvDlg').open)$('#pvDlg').showModal()}
@@ -262,6 +288,12 @@ document.addEventListener('click',async e=>{
  else if(d.prof){pid=d.prof;tab='profile';render();scrollTo(0,0)}
  else if(d.auth)openAuth(d.auth==='signup')
  else if(d.rtab){rtab=d.rtab;render()}
+ else if(d.story!==undefined)openStory(+d.story)
+ else if('storyAdd' in d){if(needLogin())return;openCreate('story')}
+ else if('sprev' in d)prevStory()
+ else if('snext' in d)nextStory()
+ else if('sclose' in d)closeStory()
+ else if('sdel' in d){const it=sgroups[sv.gi]?.items[sv.si];if(it&&confirm('Delete this story?')){await sb.from('stories').delete().eq('id',it.id);stories=stories.filter(x=>x.id!==it.id);closeStory();load()}}
  else if(d.cr==='close')closeCreate()
  else if(d.cr==='back'){cf=null;ctext=false;if(curl)URL.revokeObjectURL(curl);curl=null;crRender()}
  else if(d.cr==='text'){ctext=true;ck='post';crRender()}
@@ -345,7 +377,7 @@ async function setUser(session){
 }
 sb.auth.onAuthStateChange((ev,s)=>{setTimeout(()=>setUser(s),0)});
 sb.auth.getSession().then(({data})=>setUser(data.session));
-setInterval(()=>{if(!document.hidden&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))load()},20000);
+setInterval(()=>{if(!document.hidden&&$('#sv').hidden&&$('#cr').hidden&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))load()},20000);
 </script>
 </body>
 </html>
