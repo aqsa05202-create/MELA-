@@ -50,6 +50,23 @@ dialog::backdrop{background:rgba(20,8,30,.55)}dialog h2{margin:0 0 10px}dialog i
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:40;font-weight:600}
 .media video,.media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}.reel video,.reel img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .empty{text-align:center;color:var(--mute);padding:40px 10px}
+#bnav{display:none}
+body.tt header,body.tt footer{display:none}body.tt main{padding:0;max-width:none}
+.ttw{position:fixed;inset:0;background:#000;z-index:15}.ttw .reels{height:100%;max-width:480px;margin:0 auto;border-radius:0}
+.tabs2{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:0;right:0;display:flex;justify-content:center;gap:22px;z-index:3;color:#fff;font-weight:700}
+.tabs2 button{opacity:.65;color:#fff;font-size:1.05rem;padding:4px 2px}.tabs2 button.on{opacity:1;border-bottom:2px solid #fff}
+.shade{position:absolute;inset:auto 0 0 0;height:45%;background:linear-gradient(transparent,rgba(0,0,0,.7));z-index:1;pointer-events:none}
+.reel video,.reel img{z-index:0}.reel .cap{z-index:2;left:12px;right:84px;bottom:22px}
+.reel .side{z-index:2;right:8px;bottom:80px;gap:16px}.reel .side button{display:grid;justify-items:center;gap:2px;font-size:.78rem;font-weight:700;width:auto}
+.side .ic{font-size:2rem;line-height:1}.side .liked .ic{color:#fe2c55}
+.avb{position:relative;margin-bottom:10px}.avb .av{width:50px;height:50px;border:2px solid #fff}
+.fplus{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;background:#fe2c55;color:#fff;display:grid;place-items:center;font-size:1rem;line-height:1}
+.sheet{margin:auto auto 0;width:100%;max-width:520px;border-radius:18px 18px 0 0}.sheet .btn{text-decoration:none;display:inline-block}
+@media (max-width:700px){nav{display:none}body{padding-bottom:64px}.ttw{bottom:calc(58px + env(safe-area-inset-bottom,0px))}
+ #bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;background:#000;justify-content:space-around;align-items:center;padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));border-top:1px solid #222}
+ #bnav button{color:#aaa;font-size:.72rem;display:grid;justify-items:center;gap:0;padding:2px 10px}#bnav button span{font-size:1.3rem;line-height:1.2}
+ #bnav button[aria-current="true"]{color:#fff;font-weight:700}
+ #bnav .plus{background:linear-gradient(90deg,#25f4ee 0 28%,#fff 28% 72%,#fe2c55 72%);width:48px;height:32px;border-radius:9px;color:#000;font-weight:800;font-size:1.4rem;padding:0;display:grid;place-items:center}}
 img.av{object-fit:cover}
 .hero{background:linear-gradient(135deg,#2a1838,#5b3fd1 55%,#ff8a00);color:#fff;border-radius:22px;padding:34px 22px;margin-bottom:14px}
 .hero h1{margin:0 0 8px;font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.1;letter-spacing:-.03em}.hero p{margin:0 0 16px;opacity:.92;max-width:46ch}
@@ -72,6 +89,9 @@ footer{max-width:640px;margin:10px auto 30px;padding:0 16px;color:var(--mute);fo
 </header>
 <main id="view"></main>
 <footer>© 2026 Mela · <button data-info="about">About</button><button data-info="privacy">Privacy</button><button data-info="terms">Terms</button></footer>
+<div id="bnav"><button data-tab="feed"><span>⌂</span>Home</button><button data-tab="videos"><span>▶</span>Videos</button><button class="plus" data-act="create" aria-label="Create">+</button><button data-tab="reels"><span>♪</span>Reels</button><button data-tab="profile"><span>☺</span>Profile</button></div>
+<dialog id="cmDlg" class="sheet"><div class="row" style="justify-content:space-between;margin-top:0"><b id="cmT"></b><form method="dialog"><button class="ghost">Close</button></form></div><div class="cmts" id="cmL" style="max-height:50vh;overflow:auto;border:0;padding:0"></div></dialog>
+<dialog id="shDlg" class="sheet"><b>Share to</b><div class="row" id="shL"></div><form method="dialog"><button class="ghost">Close</button></form></dialog>
 <dialog id="infoDlg"><h2 id="infoT"></h2><p id="infoB"></p><form method="dialog"><button class="btn">Close</button></form></dialog>
 
 <dialog id="authDlg">
@@ -99,11 +119,11 @@ const COLORS=['#ff8a00','#0f8b7f','#c2185b','#5b3fd1','#d1a400','#1b6fd1'];
 const GRAD=[['#ff8a00','#c2185b','#5b3fd1'],['#0f8b7f','#1b6fd1','#2a1838'],['#d1a400','#ff8a00','#c2185b'],['#5b3fd1','#0f8b7f','#ff8a00'],['#c2185b','#2a1838','#1b6fd1'],['#1b6fd1','#34d1c0','#d1a400']];
 const $=s=>document.querySelector(s),view=$('#view');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
+let rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
 function ago(d){const s=(Date.now()-new Date(d))/1000;if(s<60)return'now';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'}
 function art(g){const c=GRAD[g%6];return `<div class="art" style="background:linear-gradient(135deg,${c[0]},${c[1]})"><span style="width:55%;aspect-ratio:1;left:-8%;top:-10%;background:${c[2]};opacity:.55"></span><span style="width:40%;aspect-ratio:1;right:-6%;bottom:-8%;background:${c[0]};opacity:.7;animation-delay:-3s"></span></div>`}
-function mh(p,reel){if(p.media_url){if(p.media_type==='video')return `<video src="${esc(p.media_url)}" ${reel?'autoplay muted loop':''} controls playsinline preload="metadata"></video>`;return `<img src="${esc(p.media_url)}" alt="Photo by ${esc(p.profiles?.username)}" loading="lazy">`}return art(p.theme)}
+function mh(p,reel){if(p.media_url){if(p.media_type==='video')return `<video src="${esc(p.media_url)}" ${reel?'autoplay muted loop':'controls'} playsinline preload="metadata"></video>`;return `<img src="${esc(p.media_url)}" alt="Photo by ${esc(p.profiles?.username)}" loading="lazy">`}return art(p.theme)}
 function av(p){const n=p?.username||'?';if(p?.avatar_url)return `<img class="av" src="${esc(p.avatar_url)}" alt="${esc(n)}">`;return `<div class="av" style="background:${COLORS[(p?.color||0)%6]}">${esc(n[0].toUpperCase())}</div>`}
 function likeBtn(p){const on=user&&p.likes.some(l=>l.user_id===user.id);return `<button class="${on?'on':''}" data-like="${p.id}" aria-pressed="${on}">${on?'♥':'♡'} ${p.likes.length}</button>`}
 
@@ -119,8 +139,18 @@ function cmtHtml(p){return `<div class="cmts" hidden>${p.comments.map(c=>`<p><b>
 function renderFeed(){view.className='';const l=posts.filter(p=>p.kind==='post'&&(!q||(p.body+' '+(p.profiles?.username||'')).toLowerCase().includes(q)));
  view.innerHTML=heroHtml()+`<input id="search" placeholder="Search posts and people…" aria-label="Search" value="${esc(q)}" style="margin-bottom:14px">`+(l.length?l.map(p=>`<article class="card"><div class="ph"><button data-prof="${p.user_id}" style="display:flex;gap:10px;align-items:center;text-align:left" aria-label="Open profile">${av(p.profiles)}<span><b style="display:block;line-height:1.1">${esc(p.profiles?.username)}</b><small style="color:var(--mute)">${ago(p.created_at)}</small></span></button>${user&&p.user_id===user.id?`<button class="ghost" data-del="${p.id}" style="margin-left:auto" aria-label="Delete post">Delete</button>`:''}</div><div class="txt">${esc(p.body)}</div><div class="media">${mh(p)}</div><div class="acts">${likeBtn(p)}<button data-cm>💬 ${p.comments.length}</button><button data-share="${p.id}">↗ Share</button></div>${cmtHtml(p)}</article>`).join(''):`<p class="empty">${q?'No results.':'No posts yet. Log in and tap + Create to share the first one.'}</p>`)}
 function heroHtml(){return user?'':`<section class="hero"><h1>Share moments.<br>Watch reels. Build your community.</h1><p>Mela brings posts, short reels and videos together in one friendly place.</p><button class="pill" data-auth="signup">Join free</button> <button class="ghost" data-auth="login">Log in</button></section><div class="feats"><div><b>Posts</b>Share updates with photos</div><div><b>Reels</b>Short vertical videos</div><div><b>Videos</b>Longer videos to watch</div></div>`}
-function renderReels(){view.className='';const l=posts.filter(p=>p.kind==='reel');
- view.innerHTML=l.length?`<div class="reels">${l.map(p=>`<section class="reel">${mh(p,1)}<div class="cap"><b>@${esc(p.profiles?.username)}</b><div>${esc(p.body)}</div></div><div class="side">${likeBtn(p)}<button data-share="${p.id}">↗ Share</button></div></section>`).join('')}</div>`:`<p class="empty">No reels yet. Create the first reel.</p>`}
+function renderReels(){view.className='';
+ const l=posts.filter(p=>p.kind==='reel'&&(rtab==='foryou'||(user&&follows.some(f=>f.follower_id===user.id&&f.following_id===p.user_id))));
+ const tabs=`<div class="tabs2"><button data-tab="feed" aria-label="Back" style="position:absolute;left:12px;opacity:1">←</button><button data-rtab="following" class="${rtab==='following'?'on':''}">Following</button><button data-rtab="foryou" class="${rtab==='foryou'?'on':''}">For You</button></div>`;
+ view.innerHTML=`<div class="ttw">${tabs}`+(l.length?`<div class="reels">${l.map(p=>{const on=user&&p.likes.some(x=>x.user_id===user.id),fol=user&&follows.some(f=>f.follower_id===user.id&&f.following_id===p.user_id),own=user&&p.user_id===user.id;
+  return `<section class="reel" data-reel>${mh(p,1)}<div class="shade"></div><div class="cap"><b>@${esc(p.profiles?.username)}</b><div>${esc(p.body)}</div></div><div class="side"><div class="avb"><button data-prof="${p.user_id}" aria-label="Profile">${av(p.profiles)}</button>${own||fol?'':`<button class="fplus" data-follow="${p.user_id}" aria-label="Follow">+</button>`}</div><button data-like="${p.id}" class="${on?'liked':''}" aria-pressed="${!!on}"><span class="ic">${on?'♥':'♡'}</span>${p.likes.length}</button><button data-cmsheet="${p.id}"><span class="ic">💬</span>${p.comments.length}</button><button data-sharesheet="${p.id}"><span class="ic">↗</span>Share</button></div></section>`}).join('')}</div>`:`<p class="empty" style="color:#aaa;padding-top:40vh">${rtab==='following'?'Follow people to see their reels here.':'No reels yet. Tap + to create the first one.'}</p>`)+`</div>`;
+ watchReels()}
+function watchReels(){const io=new IntersectionObserver(es=>es.forEach(en=>{const v=en.target.querySelector('video');if(!v)return;en.isIntersecting?v.play().catch(()=>{}):v.pause()}),{threshold:.6});document.querySelectorAll('[data-reel]').forEach(r=>io.observe(r))}
+function openSheet(id){const p=posts.find(x=>x.id===id);if(!p)return;$('#cmT').textContent=p.comments.length+' comments';
+ $('#cmL').innerHTML=(p.comments.map(c=>`<p><b>${esc(c.profiles?.username||'User')}</b> ${esc(c.body)}</p>`).join('')||'<p style="color:var(--mute)">No comments yet. Be the first.</p>')+`<form data-form="${id}"><input placeholder="Add comment…" aria-label="Comment" required maxlength="500"><button class="btn">Post</button></form>`;
+ if(!$('#cmDlg').open)$('#cmDlg').showModal()}
+function openShare(){const u=encodeURIComponent(location.href.split('#')[0]);
+ $('#shL').innerHTML=`<button class="btn" data-copy="1">Copy link</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${u}">WhatsApp</a><a class="btn" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${u}">Facebook</a><a class="btn" target="_blank" rel="noopener" href="https://t.me/share/url?url=${u}">Telegram</a>`;$('#shDlg').showModal()}
 function renderVideos(){view.className='wide';
  if(watching){const p=posts.find(x=>x.id===watching);if(p){view.innerHTML=`<div style="max-width:860px;margin:0 auto"><button class="btn" data-back>← All videos</button><div class="media" style="border-radius:16px;margin-top:12px">${mh(p)}</div><h2 style="margin:12px 0 4px">${esc(p.title||'Untitled')}</h2><small style="color:var(--mute)">${ago(p.created_at)} ago</small><p style="white-space:pre-wrap">${esc(p.body)}</p><div class="row">${av(p.profiles)}<b>${esc(p.profiles?.username)}</b><span style="margin-left:auto"></span>${likeBtn(p)}</div><article class="card">${cmtHtml(p).replace('hidden','')}</article></div>`;return}watching=null}
  const l=posts.filter(p=>p.kind==='video');
@@ -137,7 +167,7 @@ function renderProfile(){view.className='';const id=pid||user?.id;
  ${own?`<input id="pName" value="${esc(pr.username)}" maxlength="30" aria-label="Username" style="margin-bottom:8px"><textarea id="pBio" rows="2" maxlength="200" placeholder="Short bio (200 characters)" aria-label="Bio" style="margin-bottom:8px">${esc(pr.bio||'')}</textarea><label style="display:block;margin-bottom:8px;color:var(--mute);font-size:.9rem">Profile photo: <input id="pFile" type="file" accept="image/*"></label><button class="btn" id="pSave">Save profile</button>`:`<button class="btn" data-follow="${id}">${isF?'Following ✓':'Follow'}</button>`}</div></div>`
  +(mine.length?mine.map(p=>`<article class="card"><div class="txt" style="padding-top:12px">${esc(p.title?p.title+' — ':'')}${esc(p.body)}</div>${p.media_url?`<div class="media">${mh(p)}</div>`:''}<div class="acts"><button disabled>♥ ${p.likes.length}</button><button disabled>💬 ${p.comments.length}</button>${own?`<button data-del="${p.id}" style="margin-left:auto">Delete</button>`:''}</div></article>`).join(''):'<p class="empty">No posts yet.</p>')}
 const INFO={about:['About Mela','Mela is a friendly place to share posts, reels and videos with your community.'],privacy:['Privacy','We store your email, username, profile and the content you share. Posts, reels, videos and profiles are public. You can delete your own posts any time.'],terms:['Terms','Be kind and respectful. Do not post illegal, harmful or hateful content. Content that breaks these rules may be removed.']};
-function render(){topbar();document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));({feed:renderFeed,reels:renderReels,videos:renderVideos,profile:renderProfile})[tab]()}
+function render(){topbar();document.body.classList.toggle('tt',tab==='reels');document.querySelectorAll('#bnav [data-tab]').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===tab));document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));({feed:renderFeed,reels:renderReels,videos:renderVideos,profile:renderProfile})[tab]()}
 function needLogin(){if(user)return false;openAuth(false);toast('Log in first');return true}
 function openAuth(s){signup=s;$('#authTitle').textContent=s?'Create account':'Log in';$('#aName').hidden=!s;$('#aGo').textContent=s?'Sign up':'Log in';$('#aSwitch').textContent=s?'I have an account':'Create an account';$('#authDlg').showModal()}
 
@@ -146,6 +176,11 @@ document.addEventListener('click',async e=>{
  if(d.tab){tab=d.tab;watching=null;pid=null;render();scrollTo(0,0)}
  else if(d.prof){pid=d.prof;tab='profile';render();scrollTo(0,0)}
  else if(d.auth)openAuth(d.auth==='signup')
+ else if(d.rtab){rtab=d.rtab;render()}
+ else if(d.act==='create'){if(!needLogin())$('#newDlg').showModal()}
+ else if(d.cmsheet)openSheet(d.cmsheet)
+ else if(d.sharesheet)openShare()
+ else if(d.copy){try{navigator.clipboard.writeText(location.href.split('#')[0])}catch(x){}toast('Link copied');$('#shDlg').close()}
  else if(d.info){$('#infoT').textContent=INFO[d.info][0];$('#infoB').textContent=INFO[d.info][1];$('#infoDlg').showModal()}
  else if(d.follow){if(needLogin())return;const fid=d.follow,on=follows.some(f=>f.follower_id===user.id&&f.following_id===fid);
   if(on){follows=follows.filter(f=>!(f.follower_id===user.id&&f.following_id===fid));render();await sb.from('follows').delete().match({follower_id:user.id,following_id:fid})}
@@ -201,9 +236,10 @@ document.addEventListener('submit',async e=>{
  const i=e.target.querySelector('input'),body=i.value.trim();if(!body)return;
  const {error}=await sb.from('comments').insert({post_id:id,user_id:user.id,body});
  if(error){toast(error.message);return}
- i.value='';await load();const a=[...document.querySelectorAll('[data-form]')].find(f=>f.dataset.form===id);if(a)a.closest('.cmts').hidden=false;
+ i.value='';await load();if($('#cmDlg').open)openSheet(id);const a=[...document.querySelectorAll('[data-form]')].find(f=>f.dataset.form===id);if(a)a.closest('.cmts').hidden=false;
 });
 document.addEventListener('input',e=>{if(e.target.id==='search'){q=e.target.value.toLowerCase();const pos=e.target.selectionStart;renderFeed();const i=$('#search');i.focus();i.setSelectionRange(pos,pos)}});
+document.addEventListener('click',e=>{const r=e.target.closest('[data-reel]');if(!r||e.target.closest('button'))return;const v=r.querySelector('video');if(!v)return;if(v.muted)v.muted=false;else v.paused?v.play():v.pause()});
 async function setUser(session){
  user=session?.user||null;me=null;
  if(user){const {data}=await sb.from('profiles').select('id,username,color,avatar_url,bio').eq('id',user.id).single();me=data}
