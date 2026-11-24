@@ -81,6 +81,16 @@ body.tt header,body.tt footer{display:none}body.tt main{padding:0;max-width:none
 .m{max-width:80%;padding:8px 12px;border-radius:14px;background:var(--card);border:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere}.m.me{align-self:flex-end;background:var(--accent);color:#2a1838;border:0}.m small{display:block;font-size:.7rem;opacity:.65}
 .chatf{display:flex;gap:8px;margin-top:10px}.badge{background:#fe2c55;color:#fff;border-radius:99px;min-width:22px;height:22px;display:grid;place-items:center;font-size:.75rem;font-weight:700;padding:0 6px}
 #ibadge{position:absolute;top:-2px;right:2px;min-width:16px;height:16px;font-size:.62rem;padding:0 4px}#bnav button{position:relative}
+#cr{position:fixed;inset:0;z-index:60;background:#000;color:#fff;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);overflow-y:auto}#cr[hidden]{display:none}
+.crtop{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-weight:700}.crtop button{color:#fff;font-size:1.5rem;width:44px}
+.crgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:20px 16px;margin:auto;width:100%;max-width:440px}
+.crgrid label,.crgrid button{background:#1c1c1c;border-radius:16px;padding:26px 10px;text-align:center;font-weight:700;cursor:pointer;display:grid;gap:6px;justify-items:center;color:#fff}.crgrid .ic{font-size:2rem}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.crgrid label:focus-within{outline:3px solid #25f4ee}
+.crbody{display:flex;gap:12px;padding:14px;max-width:560px;width:100%;margin:0 auto}.crprev{width:112px;height:150px;border-radius:10px;overflow:hidden;background:#222;flex:none}.crprev video,.crprev img{width:100%;height:100%;object-fit:cover}
+#cr textarea,#cr input[type=text]{background:#1c1c1c;color:#fff;border-color:#333}
+.chip{padding:8px 16px;border-radius:99px;background:#222;color:#fff;font-weight:600}.chip.on{background:#fff;color:#000}
+.crpost{background:#fe2c55;color:#fff;font-weight:800;padding:14px;border-radius:12px;width:calc(100% - 28px);max-width:532px;margin:auto auto 14px}
+.upb{height:6px;background:#333;border-radius:3px;overflow:hidden}.upb i{display:block;height:100%;width:40%;background:#fe2c55;animation:slide 1.1s linear infinite}@keyframes slide{from{margin-left:-40%}to{margin-left:100%}}
 img.av{object-fit:cover}
 .hero{background:linear-gradient(135deg,#2a1838,#5b3fd1 55%,#ff8a00);color:#fff;border-radius:22px;padding:34px 22px;margin-bottom:14px}
 .hero h1{margin:0 0 8px;font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.1;letter-spacing:-.03em}.hero p{margin:0 0 16px;opacity:.92;max-width:46ch}
@@ -117,14 +127,7 @@ footer{max-width:640px;margin:10px auto 30px;padding:0 16px;color:var(--mute);fo
   <button class="btn" id="aGoogle" style="width:100%;background:#fff;color:#2a1838;border:1px solid var(--line);margin-bottom:6px">Continue with Google</button><p style="text-align:center;color:var(--mute);margin:4px 0 10px;font-size:.85rem">or use email</p>
   <div class="row" style="justify-content:space-between"><button class="ghost" id="aSwitch">Create an account</button><span><button class="ghost" id="aCancel">Cancel</button> <button class="btn" id="aGo">Log in</button></span></div>
 </dialog>
-<dialog id="newDlg">
-  <h2>Create</h2>
-  <select id="nKind" aria-label="Type"><option value="post">Post</option><option value="reel">Reel (short)</option><option value="video">Video</option></select>
-  <input id="nTitle" placeholder="Title (for videos)">
-  <textarea id="nBody" rows="4" placeholder="Share what’s on your mind…"></textarea>
-  <input id="nFile" type="file" accept="image/*,video/*" aria-label="Photo or video (up to 50 MB)">
-  <div class="row" style="justify-content:flex-end"><button class="ghost" id="nCancel">Cancel</button><button class="btn" id="nGo">Publish</button></div>
-</dialog>
+<div id="cr" hidden></div>
 
 <script>
 const SUPABASE_URL='https://fknsfzecwtdchhtskidf.supabase.co';
@@ -134,7 +137,7 @@ const COLORS=['#ff8a00','#0f8b7f','#c2185b','#5b3fd1','#d1a400','#1b6fd1'];
 const GRAD=[['#ff8a00','#c2185b','#5b3fd1'],['#0f8b7f','#1b6fd1','#2a1838'],['#d1a400','#ff8a00','#c2185b'],['#5b3fd1','#0f8b7f','#ff8a00'],['#c2185b','#2a1838','#1b6fd1'],['#1b6fd1','#34d1c0','#d1a400']];
 const $=s=>document.querySelector(s),view=$('#view');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let msgs=[],pcache={},thread=null,chan=null,ptab='grid',editing=false,rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
+let cf=null,ck='reel',curl=null,ccap='',ctitle='',ctext=false,cbusy=false,msgs=[],pcache={},thread=null,chan=null,ptab='grid',editing=false,rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
 function ago(d){const s=(Date.now()-new Date(d))/1000;if(s<60)return'now';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'}
 function art(g){const c=GRAD[g%6];return `<div class="art" style="background:linear-gradient(135deg,${c[0]},${c[1]})"><span style="width:55%;aspect-ratio:1;left:-8%;top:-10%;background:${c[2]};opacity:.55"></span><span style="width:40%;aspect-ratio:1;right:-6%;bottom:-8%;background:${c[0]};opacity:.7;animation-delay:-3s"></span></div>`}
@@ -195,6 +198,26 @@ function renderThread(){const keep=document.querySelector('#dmf input')?.value||
 document.addEventListener('submit',async e=>{if(e.target.id!=='dmf')return;e.preventDefault();const i=e.target.querySelector('input'),body=i.value.trim();if(!body||!thread)return;i.value='';
  const {data,error}=await sb.from('messages').insert({sender_id:user.id,recipient_id:thread,body}).select().single();
  if(error){toast(error.message);i.value=body;return}if(!msgs.some(x=>x.id===data.id))msgs.push(data);renderThread();$('#dmf input').focus()});
+function openCreate(){cf=null;curl=null;ctext=false;ccap='';ctitle='';cbusy=false;crRender();$('#cr').hidden=false;document.body.style.overflow='hidden'}
+function closeCreate(){$('#cr').hidden=true;document.body.style.overflow='';if(curl)URL.revokeObjectURL(curl);cf=null;curl=null;ctext=false}
+function crPick(f){if(!f)return;if(f.size>52428800){toast('File is over 50 MB');return}cf=f;curl=URL.createObjectURL(f);
+ if(f.type.startsWith('video')){const v=document.createElement('video');v.preload='metadata';v.onloadedmetadata=()=>{ck=v.duration>60?'video':'reel';crRender()};v.onerror=()=>{ck='reel';crRender()};v.src=curl}else{ck='post';crRender()}}
+function crRender(){const c=$('#cr');
+ if(!cf&&!ctext){c.innerHTML=`<div class="crtop"><button data-cr="close" aria-label="Close">✕</button><span>Create</span><span style="width:44px"></span></div><div class="crgrid"><label><span class="ic">⬆</span>Upload<input class="sr" type="file" accept="video/*,image/*" data-cfile></label><label><span class="ic">⏺</span>Record video<input class="sr" type="file" accept="video/*" capture="environment" data-cfile></label><label><span class="ic">📷</span>Take photo<input class="sr" type="file" accept="image/*" capture="environment" data-cfile></label><button data-cr="text"><span class="ic">Aa</span>Text post</button></div><p style="text-align:center;color:#888;padding:0 20px 20px;font-size:.85rem">Videos up to 60 seconds become Reels. Files up to 50 MB.</p>`;return}
+ const vid=cf&&cf.type.startsWith('video'),chips=vid?`<button class="chip ${ck==='reel'?'on':''}" data-ck="reel">Reel</button><button class="chip ${ck==='video'?'on':''}" data-ck="video">Video</button>`:`<button class="chip on" data-ck="post">Feed post</button>`;
+ const prev=cf?(vid?`<video src="${curl}#t=0.1" autoplay muted loop playsinline></video>`:`<img src="${curl}" alt="Preview">`):`<div style="height:100%;display:grid;place-items:center;font-size:2rem">Aa</div>`;
+ c.innerHTML=`<div class="crtop"><button data-cr="back" aria-label="Back">←</button><span>New post</span><span style="width:44px"></span></div><div class="crbody"><div class="crprev">${prev}</div><textarea id="cCap" rows="6" maxlength="300" placeholder="Describe your post… add #hashtags" aria-label="Caption" style="flex:1;height:150px;resize:none"></textarea></div>${ck==='video'?'<div class="crbody" style="padding-top:0"><input type="text" id="cTitle" placeholder="Video title" maxlength="80" aria-label="Video title"></div>':''}<div class="crbody" style="padding-top:0;flex-wrap:wrap;align-items:center"><b style="width:100%">Post to</b>${chips}</div><div style="flex:1"></div>${cbusy?'<div class="crbody"><div style="width:100%"><div class="upb"><i></i></div><p style="text-align:center;color:#aaa">Uploading… please wait</p></div></div>':'<button class="crpost" data-cr="post">Post</button>'}`;
+ $('#cCap').value=ccap;const t=$('#cTitle');if(t)t.value=ctitle}
+async function crPost(){if(cbusy)return;const body=ccap.trim();if(!body&&!cf){toast('Add a caption or a file');return}
+ const kind=ck,title=kind==='video'?(ctitle.trim()||null):null;let media_url=null,media_type=null;cbusy=true;crRender();
+ try{if(cf){const path=`${user.id}/${Date.now()}-${cf.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const up=await sb.storage.from('media').upload(path,cf,{contentType:cf.type});if(up.error)throw up.error;
+   media_url=sb.storage.from('media').getPublicUrl(path).data.publicUrl;media_type=cf.type.startsWith('video')?'video':'image'}
+  const {error}=await sb.from('posts').insert({user_id:user.id,kind,title,body:body||title||'New post',media_url,media_type,theme:Math.floor(Math.random()*6)});if(error)throw error;
+  closeCreate();tab=kind==='post'?'feed':kind==='reel'?'reels':'videos';watching=null;await load();toast('Posted!')}
+ catch(err){toast(err.message||'Upload failed')}
+ cbusy=false;if(!$('#cr').hidden)crRender()}
+document.addEventListener('change',e=>{if(e.target.dataset.cfile!==undefined){crPick(e.target.files[0]);e.target.value=''}});
+document.addEventListener('input',e=>{if(e.target.id==='cCap')ccap=e.target.value;if(e.target.id==='cTitle')ctitle=e.target.value});
 function openView(id){const p=posts.find(x=>x.id===id);if(!p)return;const own=user&&p.user_id===user.id;
  $('#pvB').innerHTML=`<div class="media" style="border-radius:12px">${mh(p)}</div><p style="white-space:pre-wrap;overflow-wrap:anywhere"><b>${esc(p.title||'')}</b> ${esc(p.body)}</p><div class="acts" style="border:0;padding:0">${likeBtn(p)}<button data-cmsheet="${p.id}">💬 ${p.comments.length}</button>${own?`<button data-del="${p.id}" style="margin-left:auto">Delete</button>`:''}</div>`;
  if(!$('#pvDlg').open)$('#pvDlg').showModal()}
@@ -225,6 +248,11 @@ document.addEventListener('click',async e=>{
  else if(d.prof){pid=d.prof;tab='profile';render();scrollTo(0,0)}
  else if(d.auth)openAuth(d.auth==='signup')
  else if(d.rtab){rtab=d.rtab;render()}
+ else if(d.cr==='close')closeCreate()
+ else if(d.cr==='back'){cf=null;ctext=false;if(curl)URL.revokeObjectURL(curl);curl=null;crRender()}
+ else if(d.cr==='text'){ctext=true;ck='post';crRender()}
+ else if(d.cr==='post')crPost()
+ else if(d.ck){ck=d.ck;crRender()}
  else if(d.ptab){ptab=d.ptab;render()}
  else if(d.msg){if(needLogin())return;thread=d.msg;tab='inbox';pid=null;render();scrollTo(0,0)}
  else if(d.thread){thread=d.thread;render()}
@@ -232,7 +260,7 @@ document.addEventListener('click',async e=>{
  else if('edit' in d){editing=!editing;render()}
  else if(d.view)openView(d.view)
  else if(d.act==='logout'){await sb.auth.signOut()}
- else if(d.act==='create'){if(!needLogin())$('#newDlg').showModal()}
+ else if(d.act==='create'){if(!needLogin())openCreate()}
  else if(d.cmsheet)openSheet(d.cmsheet)
  else if(d.sharesheet)openShare()
  else if(d.copy){try{navigator.clipboard.writeText(location.href.split('#')[0])}catch(x){}toast('Link copied');$('#shDlg').close()}
@@ -250,7 +278,7 @@ document.addEventListener('click',async e=>{
  else if(d.del){if(confirm('Delete this post?')){await sb.from('posts').delete().eq('id',d.del);$('#pvDlg').close();load()}}
  else if(t.id==='login')openAuth(false);else if(t.id==='signupBtn')openAuth(true);
  else if(t.id==='logout'){await sb.auth.signOut()}
- else if(t.id==='create'){$('#newDlg').showModal()}
+ else if(t.id==='create'){openCreate()}
  else if(t.id==='aGoogle'){const r=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(r.error)toast(r.error.message)}
  else if(t.id==='pSave'){const name=$('#pName').value.trim(),bio=$('#pBio').value.trim(),f=$('#pFile').files[0];
   if(name.length<2){toast('Name is too short');return}if(f&&f.size>5242880){toast('Photo must be under 5 MB');return}
