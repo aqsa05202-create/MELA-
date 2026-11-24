@@ -1,2 +1,2 @@
-Mela v9: TikTok-style upload (Upload / Record / Photo / Text, preview + caption, Reel/Video choice, progress).
+Mela v10: Activity (notifications for likes, comments, new followers) with bell + realtime.
 Sirf index.html upload karein (GitHub ya Netlify).

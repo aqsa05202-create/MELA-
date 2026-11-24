@@ -91,6 +91,7 @@ body.tt header,body.tt footer{display:none}body.tt main{padding:0;max-width:none
 .chip{padding:8px 16px;border-radius:99px;background:#222;color:#fff;font-weight:600}.chip.on{background:#fff;color:#000}
 .crpost{background:#fe2c55;color:#fff;font-weight:800;padding:14px;border-radius:12px;width:calc(100% - 28px);max-width:532px;margin:auto auto 14px}
 .upb{height:6px;background:#333;border-radius:3px;overflow:hidden}.upb i{display:block;height:100%;width:40%;background:#fe2c55;animation:slide 1.1s linear infinite}@keyframes slide{from{margin-left:-40%}to{margin-left:100%}}
+#nbadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;font-size:.65rem;padding:0 4px}.bell{position:relative;font-size:1.1rem;padding:6px 12px}
 img.av{object-fit:cover}
 .hero{background:linear-gradient(135deg,#2a1838,#5b3fd1 55%,#ff8a00);color:#fff;border-radius:22px;padding:34px 22px;margin-bottom:14px}
 .hero h1{margin:0 0 8px;font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.1;letter-spacing:-.03em}.hero p{margin:0 0 16px;opacity:.92;max-width:46ch}
@@ -137,7 +138,7 @@ const COLORS=['#ff8a00','#0f8b7f','#c2185b','#5b3fd1','#d1a400','#1b6fd1'];
 const GRAD=[['#ff8a00','#c2185b','#5b3fd1'],['#0f8b7f','#1b6fd1','#2a1838'],['#d1a400','#ff8a00','#c2185b'],['#5b3fd1','#0f8b7f','#ff8a00'],['#c2185b','#2a1838','#1b6fd1'],['#1b6fd1','#34d1c0','#d1a400']];
 const $=s=>document.querySelector(s),view=$('#view');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let cf=null,ck='reel',curl=null,ccap='',ctitle='',ctext=false,cbusy=false,msgs=[],pcache={},thread=null,chan=null,ptab='grid',editing=false,rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
+let notifs=[],cf=null,ck='reel',curl=null,ccap='',ctitle='',ctext=false,cbusy=false,msgs=[],pcache={},thread=null,chan=null,ptab='grid',editing=false,rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
 function ago(d){const s=(Date.now()-new Date(d))/1000;if(s<60)return'now';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'}
 function art(g){const c=GRAD[g%6];return `<div class="art" style="background:linear-gradient(135deg,${c[0]},${c[1]})"><span style="width:55%;aspect-ratio:1;left:-8%;top:-10%;background:${c[2]};opacity:.55"></span><span style="width:40%;aspect-ratio:1;right:-6%;bottom:-8%;background:${c[0]};opacity:.7;animation-delay:-3s"></span></div>`}
@@ -151,7 +152,7 @@ async function load(){
  posts=data;const f=await sb.from('follows').select('follower_id,following_id');follows=f.data||[];render();
 }
 function topbar(){
- $('#me').innerHTML=user?`<button class="ghost" data-tab="profile" style="display:flex;gap:8px;align-items:center;padding:4px 12px 4px 4px" aria-label="My profile">${av(me)}<b>${esc(me?.username||'')}</b></button><button class="pill" id="create">+ Create</button><button class="ghost" id="logout">Log out</button>`:`<button class="ghost" id="login">Log in</button><button class="pill" id="signupBtn">Sign up</button>`;
+ $('#me').innerHTML=user?`<button class="ghost bell" data-tab="notifs" aria-label="Notifications">🔔<i class="badge" id="nbadge" hidden></i></button><button class="ghost" data-tab="profile" style="display:flex;gap:8px;align-items:center;padding:4px 12px 4px 4px" aria-label="My profile">${av(me)}<b>${esc(me?.username||'')}</b></button><button class="pill" id="create">+ Create</button><button class="ghost" id="logout">Log out</button>`:`<button class="ghost" id="login">Log in</button><button class="pill" id="signupBtn">Sign up</button>`;
 }
 function cmtHtml(p){return `<div class="cmts" hidden>${p.comments.map(c=>`<p><b>${esc(c.profiles?.username||'User')}</b> ${esc(c.body)}</p>`).join('')}<form data-form="${p.id}"><input placeholder="Write a comment…" aria-label="Comment" required maxlength="500"><button class="btn">Send</button></form></div>`}
 function renderFeed(){view.className='';const l=posts.filter(p=>p.kind==='post'&&(!q||(p.body+' '+(p.profiles?.username||'')).toLowerCase().includes(q)));
@@ -182,7 +183,8 @@ async function loadMsgs(){if(!user){msgs=[];return}
 function subscribe(){if(chan||!user)return;chan=sb.channel('dm-'+user.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},async pl=>{const m=pl.new;
  if(m.sender_id!==user.id&&m.recipient_id!==user.id||msgs.some(x=>x.id===m.id))return;msgs.push(m);
  const o=m.sender_id===user.id?m.recipient_id:m.sender_id;if(!profOf(o))await fillProfiles([o]);
- if(tab==='inbox')render();else{updBadge();if(m.recipient_id===user.id)toast('New message')}}).subscribe()}
+ if(tab==='inbox')render();else{updBadge();if(m.recipient_id===user.id)toast('New message')}})
+ .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:`user_id=eq.${user.id}`},async pl=>{const n=pl.new;if(notifs.some(x=>x.id===n.id))return;notifs.unshift(n);if(!profOf(n.actor_id))await fillProfiles([n.actor_id]);if(tab==='notifs')render();else{updNbadge();toast('New activity')}}).subscribe()}
 function markRead(){const un=msgs.filter(m=>m.sender_id===thread&&m.recipient_id===user.id&&!m.read_at);if(!un.length)return;
  un.forEach(m=>m.read_at=new Date().toISOString());updBadge();sb.from('messages').update({read_at:new Date().toISOString()}).eq('sender_id',thread).eq('recipient_id',user.id).is('read_at',null).then(()=>{})}
 function renderInbox(){view.className='';
@@ -218,6 +220,18 @@ async function crPost(){if(cbusy)return;const body=ccap.trim();if(!body&&!cf){to
  cbusy=false;if(!$('#cr').hidden)crRender()}
 document.addEventListener('change',e=>{if(e.target.dataset.cfile!==undefined){crPick(e.target.files[0]);e.target.value=''}});
 document.addEventListener('input',e=>{if(e.target.id==='cCap')ccap=e.target.value;if(e.target.id==='cTitle')ctitle=e.target.value});
+function updNbadge(){const n=user?notifs.filter(x=>!x.read_at).length:0,b=$('#nbadge');if(!b)return;b.hidden=!n;b.textContent=n>9?'9+':n}
+async function loadNotifs(){if(!user){notifs=[];return}
+ const {data}=await sb.from('notifications').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).limit(50);notifs=data||[];
+ await fillProfiles([...new Set(notifs.map(n=>n.actor_id))].filter(i=>!profOf(i)));updNbadge()}
+function markNotifsRead(){const un=notifs.filter(n=>!n.read_at);if(!un.length)return;const t=new Date().toISOString();un.forEach(n=>n.read_at=t);updNbadge();
+ sb.from('notifications').update({read_at:t}).eq('user_id',user.id).is('read_at',null).then(()=>{})}
+function renderNotifs(){view.className='';
+ if(!user){view.innerHTML='<p class="empty">Log in to see your activity.</p>';return}
+ const txt=n=>n.type==='like'?'liked your post':n.type==='comment'?'commented: '+(n.snippet||''):'started following you';
+ view.innerHTML='<h2 style="margin:0 0 12px">Activity</h2>'+(notifs.length?notifs.map(n=>{const pr=profOf(n.actor_id)||{username:'Someone'};
+  return `<button class="card" data-notif="${n.id}" style="display:flex;gap:12px;align-items:center;width:100%;padding:12px;text-align:left;${n.read_at?'':'border-color:var(--accent)'}">${av(pr)}<span style="flex:1;min-width:0;overflow-wrap:anywhere"><b>${esc(pr.username)}</b> ${esc(txt(n))}<small style="display:block;color:var(--mute)">${ago(n.created_at)}</small></span></button>`}).join(''):'<p class="empty">No activity yet. Likes, comments and new followers show up here.</p>');
+ markNotifsRead()}
 function openView(id){const p=posts.find(x=>x.id===id);if(!p)return;const own=user&&p.user_id===user.id;
  $('#pvB').innerHTML=`<div class="media" style="border-radius:12px">${mh(p)}</div><p style="white-space:pre-wrap;overflow-wrap:anywhere"><b>${esc(p.title||'')}</b> ${esc(p.body)}</p><div class="acts" style="border:0;padding:0">${likeBtn(p)}<button data-cmsheet="${p.id}">💬 ${p.comments.length}</button>${own?`<button data-del="${p.id}" style="margin-left:auto">Delete</button>`:''}</div>`;
  if(!$('#pvDlg').open)$('#pvDlg').showModal()}
@@ -238,7 +252,7 @@ function renderProfile(){view.className='';const id=pid||user?.id;
  <div class="ptabs"><button data-ptab="grid" class="${ptab==='grid'?'on':''}" aria-label="Posts">▦</button><button data-ptab="liked" class="${ptab==='liked'?'on':''}" aria-label="Liked">♡</button></div>
  ${list.length?`<div class="pgrid">${list.map(tile).join('')}</div>`:`<p class="empty">${ptab==='liked'&&!own?'🔒 Liked posts are private.':ptab==='liked'?'Posts you like will show here.':'No posts yet.'}</p>`}`}
 const INFO={about:['About Mela','Mela is a friendly place to share posts, reels and videos with your community.'],privacy:['Privacy','We store your email, username, profile and the content you share. Posts, reels, videos and profiles are public. You can delete your own posts any time.'],terms:['Terms','Be kind and respectful. Do not post illegal, harmful or hateful content. Content that breaks these rules may be removed.']};
-function render(){topbar();document.body.classList.toggle('tt',tab==='reels');document.querySelectorAll('#bnav [data-tab]').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===tab));updBadge();document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));({feed:renderFeed,reels:renderReels,videos:renderVideos,profile:renderProfile,inbox:renderInbox})[tab]()}
+function render(){topbar();document.body.classList.toggle('tt',tab==='reels');document.querySelectorAll('#bnav [data-tab]').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===tab));updBadge();updNbadge();document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));({feed:renderFeed,reels:renderReels,videos:renderVideos,profile:renderProfile,inbox:renderInbox,notifs:renderNotifs})[tab]()}
 function needLogin(){if(user)return false;openAuth(false);toast('Log in first');return true}
 function openAuth(s){signup=s;$('#authTitle').textContent=s?'Create account':'Log in';$('#aName').hidden=!s;$('#aGo').textContent=s?'Sign up':'Log in';$('#aSwitch').textContent=s?'I have an account':'Create an account';$('#authDlg').showModal()}
 
@@ -256,6 +270,7 @@ document.addEventListener('click',async e=>{
  else if(d.ptab){ptab=d.ptab;render()}
  else if(d.msg){if(needLogin())return;thread=d.msg;tab='inbox';pid=null;render();scrollTo(0,0)}
  else if(d.thread){thread=d.thread;render()}
+ else if(d.notif){const n=notifs.find(x=>x.id===d.notif);if(n&&n.post_id&&posts.some(x=>x.id===n.post_id))openView(n.post_id);else if(n){pid=n.actor_id;tab='profile';render();scrollTo(0,0)}}
  else if('threadBack' in d){thread=null;render()}
  else if('edit' in d){editing=!editing;render()}
  else if(d.view)openView(d.view)
@@ -324,8 +339,8 @@ document.addEventListener('submit',async e=>{
 document.addEventListener('input',e=>{if(e.target.id==='search'){q=e.target.value.toLowerCase();const pos=e.target.selectionStart;renderFeed();const i=$('#search');i.focus();i.setSelectionRange(pos,pos)}});
 document.addEventListener('click',e=>{const r=e.target.closest('[data-reel]');if(!r||e.target.closest('button'))return;const v=r.querySelector('video');if(!v)return;if(v.muted)v.muted=false;else v.paused?v.play():v.pause()});
 async function setUser(session){
- user=session?.user||null;me=null;msgs=[];thread=null;if(chan){sb.removeChannel(chan);chan=null}
- if(user){const {data}=await sb.from('profiles').select('id,username,color,avatar_url,bio').eq('id',user.id).single();me=data;await loadMsgs();subscribe()}
+ user=session?.user||null;me=null;msgs=[];notifs=[];thread=null;if(chan){sb.removeChannel(chan);chan=null}
+ if(user){const {data}=await sb.from('profiles').select('id,username,color,avatar_url,bio').eq('id',user.id).single();me=data;await loadMsgs();await loadNotifs();subscribe()}
  await load();
 }
 sb.auth.onAuthStateChange((ev,s)=>{setTimeout(()=>setUser(s),0)});
