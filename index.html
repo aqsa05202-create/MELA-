@@ -67,6 +67,16 @@ body.tt header,body.tt footer{display:none}body.tt main{padding:0;max-width:none
  #bnav button{color:#aaa;font-size:.72rem;display:grid;justify-items:center;gap:0;padding:2px 10px}#bnav button span{font-size:1.3rem;line-height:1.2}
  #bnav button[aria-current="true"]{color:#fff;font-weight:700}
  #bnav .plus{background:linear-gradient(90deg,#25f4ee 0 28%,#fff 28% 72%,#fe2c55 72%);width:48px;height:32px;border-radius:9px;color:#000;font-weight:800;font-size:1.4rem;padding:0;display:grid;place-items:center}}
+.ptop{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.ptop button{font-size:1.5rem;padding:6px 10px}
+.phead{display:flex;gap:14px;align-items:flex-start;justify-content:space-between}.phead h2{margin:0;font-size:1.5rem;line-height:1.15;overflow-wrap:anywhere}.handle{color:var(--mute);margin:2px 0 12px}
+.pst{display:flex;gap:20px}.pst div{font-size:.85rem;color:var(--mute)}.pst b{display:block;font-size:1.4rem;color:var(--ink)}
+.bigav{flex:none}.bigav .av{width:96px;height:96px;font-size:2.4rem;border:3px solid var(--line)}
+.ptabs{display:flex;border-bottom:1px solid var(--line);margin-top:14px}.ptabs button{flex:1;padding:12px;font-size:1.3rem;color:var(--mute);border-bottom:3px solid transparent}.ptabs button.on{color:var(--ink);border-color:var(--ink)}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}.tile{position:relative;aspect-ratio:3/4;overflow:hidden;background:#222;color:#fff;display:block;width:100%}
+.tile video,.tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.tile .t{position:absolute;left:8px;right:8px;top:8px;font-size:.78rem;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.6);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-align:left}
+.tile .n{position:absolute;left:8px;bottom:6px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.pbtn{width:100%;background:var(--line);padding:10px;border-radius:10px;font-weight:700;margin-top:12px}.pbtn.red{background:#fe2c55;color:#fff}
 img.av{object-fit:cover}
 .hero{background:linear-gradient(135deg,#2a1838,#5b3fd1 55%,#ff8a00);color:#fff;border-radius:22px;padding:34px 22px;margin-bottom:14px}
 .hero h1{margin:0 0 8px;font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.1;letter-spacing:-.03em}.hero p{margin:0 0 16px;opacity:.92;max-width:46ch}
@@ -92,6 +102,7 @@ footer{max-width:640px;margin:10px auto 30px;padding:0 16px;color:var(--mute);fo
 <div id="bnav"><button data-tab="feed"><span>⌂</span>Home</button><button data-tab="videos"><span>▶</span>Videos</button><button class="plus" data-act="create" aria-label="Create">+</button><button data-tab="reels"><span>♪</span>Reels</button><button data-tab="profile"><span>☺</span>Profile</button></div>
 <dialog id="cmDlg" class="sheet"><div class="row" style="justify-content:space-between;margin-top:0"><b id="cmT"></b><form method="dialog"><button class="ghost">Close</button></form></div><div class="cmts" id="cmL" style="max-height:50vh;overflow:auto;border:0;padding:0"></div></dialog>
 <dialog id="shDlg" class="sheet"><b>Share to</b><div class="row" id="shL"></div><form method="dialog"><button class="ghost">Close</button></form></dialog>
+<dialog id="pvDlg"><div id="pvB"></div><form method="dialog" class="row"><button class="ghost">Close</button></form></dialog>
 <dialog id="infoDlg"><h2 id="infoT"></h2><p id="infoB"></p><form method="dialog"><button class="btn">Close</button></form></dialog>
 
 <dialog id="authDlg">
@@ -119,7 +130,7 @@ const COLORS=['#ff8a00','#0f8b7f','#c2185b','#5b3fd1','#d1a400','#1b6fd1'];
 const GRAD=[['#ff8a00','#c2185b','#5b3fd1'],['#0f8b7f','#1b6fd1','#2a1838'],['#d1a400','#ff8a00','#c2185b'],['#5b3fd1','#0f8b7f','#ff8a00'],['#c2185b','#2a1838','#1b6fd1'],['#1b6fd1','#34d1c0','#d1a400']];
 const $=s=>document.querySelector(s),view=$('#view');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
+let ptab='grid',editing=false,rtab='foryou',user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
 function ago(d){const s=(Date.now()-new Date(d))/1000;if(s<60)return'now';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'}
 function art(g){const c=GRAD[g%6];return `<div class="art" style="background:linear-gradient(135deg,${c[0]},${c[1]})"><span style="width:55%;aspect-ratio:1;left:-8%;top:-10%;background:${c[2]};opacity:.55"></span><span style="width:40%;aspect-ratio:1;right:-6%;bottom:-8%;background:${c[0]};opacity:.7;animation-delay:-3s"></span></div>`}
@@ -156,16 +167,25 @@ function renderVideos(){view.className='wide';
  const l=posts.filter(p=>p.kind==='video');
  view.innerHTML=l.length?`<div class="grid">${l.map(p=>`<button class="vid" data-open="${p.id}"><div class="media">${mh(p)}</div><h3>${esc(p.title||'Untitled')}</h3><small>${esc(p.profiles?.username)} · ${ago(p.created_at)} ago</small></button>`).join('')}</div>`:`<p class="empty">No videos yet. Create the first one.</p>`}
 function profOf(id){if(user&&id===user.id)return me;const x=posts.find(p=>p.user_id===id);return x?x.profiles:null}
+function openView(id){const p=posts.find(x=>x.id===id);if(!p)return;const own=user&&p.user_id===user.id;
+ $('#pvB').innerHTML=`<div class="media" style="border-radius:12px">${mh(p)}</div><p style="white-space:pre-wrap;overflow-wrap:anywhere"><b>${esc(p.title||'')}</b> ${esc(p.body)}</p><div class="acts" style="border:0;padding:0">${likeBtn(p)}<button data-cmsheet="${p.id}">💬 ${p.comments.length}</button>${own?`<button data-del="${p.id}" style="margin-left:auto">Delete</button>`:''}</div>`;
+ if(!$('#pvDlg').open)$('#pvDlg').showModal()}
 function renderProfile(){view.className='';const id=pid||user?.id;
  if(!id){view.innerHTML='<p class="empty">Log in to see your profile.</p>';return}
  const pr=profOf(id);if(!pr){view.innerHTML='<p class="empty">Profile not found.</p>';return}
  const own=user&&id===user.id,mine=posts.filter(p=>p.user_id===id),lk=mine.reduce((n,p)=>n+p.likes.length,0);
  const fers=follows.filter(f=>f.following_id===id).length,fing=follows.filter(f=>f.follower_id===id).length;
- const isF=user&&follows.some(f=>f.follower_id===user.id&&f.following_id===id),c=GRAD[(pr.color||0)%6];
- const ava=pr.avatar_url?`<img class="av pav" src="${esc(pr.avatar_url)}" alt="${esc(pr.username)}">`:`<div class="av pav" style="background:${COLORS[(pr.color||0)%6]}">${esc(pr.username[0].toUpperCase())}</div>`;
- view.innerHTML=`<div class="card"><div class="cover" style="background:linear-gradient(135deg,${c[0]},${c[1]},${c[2]})"></div><div class="pbox">${ava}<h2 style="margin:8px 0 2px">${esc(pr.username)}</h2><p style="margin:0;white-space:pre-wrap;color:var(--mute)">${esc(pr.bio||(own?'Add a short bio below.':''))}</p><div class="stats"><span><b>${mine.length}</b> posts</span><span><b>${fers}</b> followers</span><span><b>${fing}</b> following</span><span><b>${lk}</b> likes</span></div>
- ${own?`<input id="pName" value="${esc(pr.username)}" maxlength="30" aria-label="Username" style="margin-bottom:8px"><textarea id="pBio" rows="2" maxlength="200" placeholder="Short bio (200 characters)" aria-label="Bio" style="margin-bottom:8px">${esc(pr.bio||'')}</textarea><label style="display:block;margin-bottom:8px;color:var(--mute);font-size:.9rem">Profile photo: <input id="pFile" type="file" accept="image/*"></label><button class="btn" id="pSave">Save profile</button>`:`<button class="btn" data-follow="${id}">${isF?'Following ✓':'Follow'}</button>`}</div></div>`
- +(mine.length?mine.map(p=>`<article class="card"><div class="txt" style="padding-top:12px">${esc(p.title?p.title+' — ':'')}${esc(p.body)}</div>${p.media_url?`<div class="media">${mh(p)}</div>`:''}<div class="acts"><button disabled>♥ ${p.likes.length}</button><button disabled>💬 ${p.comments.length}</button>${own?`<button data-del="${p.id}" style="margin-left:auto">Delete</button>`:''}</div></article>`).join(''):'<p class="empty">No posts yet.</p>')}
+ const isF=user&&follows.some(f=>f.follower_id===user.id&&f.following_id===id);
+ const handle='@'+(pr.username.toLowerCase().replace(/[^a-z0-9._]/g,'')||'user');
+ const ava=pr.avatar_url?`<img class="av" src="${esc(pr.avatar_url)}" alt="${esc(pr.username)}">`:`<div class="av" style="background:${COLORS[(pr.color||0)%6]}">${esc(pr.username[0].toUpperCase())}</div>`;
+ const list=ptab==='liked'?(own?posts.filter(p=>p.likes.some(l=>l.user_id===user.id)):[]):mine;
+ const tile=p=>`<button class="tile" data-view="${p.id}" aria-label="Open post">${p.media_url?(p.media_type==='video'?`<video src="${esc(p.media_url)}#t=0.1" preload="metadata" muted playsinline></video>`:`<img src="${esc(p.media_url)}" alt="" loading="lazy">`):art(p.theme)+`<span class="t">${esc(p.title||p.body)}</span>`}<span class="n">${p.media_type==='video'||p.kind!=='post'?'▷ ':'♥ '}${p.likes.length}</span></button>`;
+ view.innerHTML=`<div class="ptop">${own?'<button data-edit aria-label="Edit profile">✏</button><button data-act="logout" aria-label="Log out" style="font-size:.95rem;font-weight:700">Log out</button>':'<button data-tab="feed" aria-label="Back">←</button><span></span>'}</div>
+ <div class="phead"><div><h2>${esc(pr.username)}</h2><div class="handle">${esc(handle)}</div><div class="pst"><div><b>${fing}</b>Following</div><div><b>${fers}</b>Followers</div><div><b>${lk}</b>Likes</div></div></div><div class="bigav">${ava}</div></div>
+ <p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:14px 0 0">${esc(pr.bio||(own?'Tap ✏ to add a bio.':''))}</p>
+ ${own?(editing?`<div class="card" style="padding:14px;margin-top:12px"><input id="pName" value="${esc(pr.username)}" maxlength="30" aria-label="Username" style="margin-bottom:8px"><textarea id="pBio" rows="2" maxlength="200" placeholder="Short bio (200 characters)" aria-label="Bio" style="margin-bottom:8px">${esc(pr.bio||'')}</textarea><label style="display:block;margin-bottom:8px;color:var(--mute);font-size:.9rem">Profile photo: <input id="pFile" type="file" accept="image/*"></label><button class="btn" id="pSave">Save profile</button></div>`:'<button class="pbtn" data-edit>Edit profile</button>'):`<button class="pbtn ${isF?'':'red'}" data-follow="${id}">${isF?'Following ✓':'Follow'}</button>`}
+ <div class="ptabs"><button data-ptab="grid" class="${ptab==='grid'?'on':''}" aria-label="Posts">▦</button><button data-ptab="liked" class="${ptab==='liked'?'on':''}" aria-label="Liked">♡</button></div>
+ ${list.length?`<div class="pgrid">${list.map(tile).join('')}</div>`:`<p class="empty">${ptab==='liked'&&!own?'🔒 Liked posts are private.':ptab==='liked'?'Posts you like will show here.':'No posts yet.'}</p>`}`}
 const INFO={about:['About Mela','Mela is a friendly place to share posts, reels and videos with your community.'],privacy:['Privacy','We store your email, username, profile and the content you share. Posts, reels, videos and profiles are public. You can delete your own posts any time.'],terms:['Terms','Be kind and respectful. Do not post illegal, harmful or hateful content. Content that breaks these rules may be removed.']};
 function render(){topbar();document.body.classList.toggle('tt',tab==='reels');document.querySelectorAll('#bnav [data-tab]').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===tab));document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));({feed:renderFeed,reels:renderReels,videos:renderVideos,profile:renderProfile})[tab]()}
 function needLogin(){if(user)return false;openAuth(false);toast('Log in first');return true}
@@ -177,6 +197,10 @@ document.addEventListener('click',async e=>{
  else if(d.prof){pid=d.prof;tab='profile';render();scrollTo(0,0)}
  else if(d.auth)openAuth(d.auth==='signup')
  else if(d.rtab){rtab=d.rtab;render()}
+ else if(d.ptab){ptab=d.ptab;render()}
+ else if('edit' in d){editing=!editing;render()}
+ else if(d.view)openView(d.view)
+ else if(d.act==='logout'){await sb.auth.signOut()}
  else if(d.act==='create'){if(!needLogin())$('#newDlg').showModal()}
  else if(d.cmsheet)openSheet(d.cmsheet)
  else if(d.sharesheet)openShare()
@@ -192,7 +216,7 @@ document.addEventListener('click',async e=>{
  else if(d.share){try{navigator.clipboard.writeText(location.href.split('#')[0])}catch(x){}toast('Link copied')}
  else if(d.open){watching=d.open;render();scrollTo(0,0)}
  else if('back' in d){watching=null;render()}
- else if(d.del){if(confirm('Delete this post?')){await sb.from('posts').delete().eq('id',d.del);load()}}
+ else if(d.del){if(confirm('Delete this post?')){await sb.from('posts').delete().eq('id',d.del);$('#pvDlg').close();load()}}
  else if(t.id==='login')openAuth(false);else if(t.id==='signupBtn')openAuth(true);
  else if(t.id==='logout'){await sb.auth.signOut()}
  else if(t.id==='create'){$('#newDlg').showModal()}
@@ -203,7 +227,7 @@ document.addEventListener('click',async e=>{
   if(f){const path=`${user.id}/avatar-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const up=await sb.storage.from('media').upload(path,f,{contentType:f.type});
    if(up.error){toast(up.error.message);t.disabled=false;t.textContent='Save profile';return}upd.avatar_url=sb.storage.from('media').getPublicUrl(path).data.publicUrl}
   const {error}=await sb.from('profiles').update(upd).eq('id',user.id);t.disabled=false;t.textContent='Save profile';
-  if(error){toast(error.message);return}Object.assign(me,upd);await load();toast('Profile saved')}
+  if(error){toast(error.message);return}Object.assign(me,upd);editing=false;await load();toast('Profile saved')}
  else if(t.id==='aSwitch')openAuth(!signup);else if(t.id==='aCancel')$('#authDlg').close();
  else if(t.id==='nCancel')$('#newDlg').close();
  else if(t.id==='aGo'){
