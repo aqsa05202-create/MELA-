@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mela</title>
+<title>Mela – Share moments, watch reels</title>
+<meta name="description" content="Mela: share posts, reels and videos with your community.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23ff8a00'/%3E%3Ctext x='32' y='47' font-size='40' text-anchor='middle' font-family='sans-serif' font-weight='800' fill='%232a1838'%3EM%3C/text%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>
@@ -48,7 +50,15 @@ dialog::backdrop{background:rgba(20,8,30,.55)}dialog h2{margin:0 0 10px}dialog i
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:40;font-weight:600}
 .media video,.media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}.reel video,.reel img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .empty{text-align:center;color:var(--mute);padding:40px 10px}
-@media (max-width:560px){nav{order:3;width:100%;justify-content:space-between}nav button{flex:1;padding:8px 6px}.me{margin-left:auto}}
+img.av{object-fit:cover}
+.hero{background:linear-gradient(135deg,#2a1838,#5b3fd1 55%,#ff8a00);color:#fff;border-radius:22px;padding:34px 22px;margin-bottom:14px}
+.hero h1{margin:0 0 8px;font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.1;letter-spacing:-.03em}.hero p{margin:0 0 16px;opacity:.92;max-width:46ch}
+.hero .ghost{border-color:rgba(255,255,255,.55);color:#fff}
+.feats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}.feats div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:.88rem;color:var(--mute)}.feats b{display:block;color:var(--ink);font-size:1rem}
+.cover{height:120px}.pbox{margin-top:-44px;padding:0 18px 18px}.pav{width:88px!important;height:88px!important;font-size:2rem;border:4px solid var(--card)}
+.stats{display:flex;gap:18px;margin:10px 0;color:var(--mute)}.stats b{color:var(--ink)}
+footer{max-width:640px;margin:10px auto 30px;padding:0 16px;color:var(--mute);font-size:.85rem;text-align:center}footer button{color:var(--mute);text-decoration:underline;margin:0 6px}
+@media (max-width:560px){.feats{grid-template-columns:1fr}nav{order:3;width:100%;justify-content:space-between}nav button{flex:1;padding:8px 6px}.me{margin-left:auto}}
 @media (prefers-reduced-motion:reduce){.art span{animation:none}}
 </style>
 </head>
@@ -61,6 +71,8 @@ dialog::backdrop{background:rgba(20,8,30,.55)}dialog h2{margin:0 0 10px}dialog i
   <div class="row me" id="me" style="margin:0"></div>
 </header>
 <main id="view"></main>
+<footer>© 2026 Mela · <button data-info="about">About</button><button data-info="privacy">Privacy</button><button data-info="terms">Terms</button></footer>
+<dialog id="infoDlg"><h2 id="infoT"></h2><p id="infoB"></p><form method="dialog"><button class="btn">Close</button></form></dialog>
 
 <dialog id="authDlg">
   <h2 id="authTitle">Log in</h2>
@@ -87,42 +99,57 @@ const COLORS=['#ff8a00','#0f8b7f','#c2185b','#5b3fd1','#d1a400','#1b6fd1'];
 const GRAD=[['#ff8a00','#c2185b','#5b3fd1'],['#0f8b7f','#1b6fd1','#2a1838'],['#d1a400','#ff8a00','#c2185b'],['#5b3fd1','#0f8b7f','#ff8a00'],['#c2185b','#2a1838','#1b6fd1'],['#1b6fd1','#34d1c0','#d1a400']];
 const $=s=>document.querySelector(s),view=$('#view');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let user=null,me=null,posts=[],tab='feed',watching=null,signup=false;
+let user=null,me=null,follows=[],pid=null,q='',posts=[],tab='feed',watching=null,signup=false;
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
 function ago(d){const s=(Date.now()-new Date(d))/1000;if(s<60)return'now';if(s<3600)return Math.floor(s/60)+'m';if(s<86400)return Math.floor(s/3600)+'h';return Math.floor(s/86400)+'d'}
 function art(g){const c=GRAD[g%6];return `<div class="art" style="background:linear-gradient(135deg,${c[0]},${c[1]})"><span style="width:55%;aspect-ratio:1;left:-8%;top:-10%;background:${c[2]};opacity:.55"></span><span style="width:40%;aspect-ratio:1;right:-6%;bottom:-8%;background:${c[0]};opacity:.7;animation-delay:-3s"></span></div>`}
 function mh(p,reel){if(p.media_url){if(p.media_type==='video')return `<video src="${esc(p.media_url)}" ${reel?'autoplay muted loop':''} controls playsinline preload="metadata"></video>`;return `<img src="${esc(p.media_url)}" alt="Photo by ${esc(p.profiles?.username)}" loading="lazy">`}return art(p.theme)}
-function av(p){const n=p?.username||'?';return `<div class="av" style="background:${COLORS[(p?.color||0)%6]}">${esc(n[0].toUpperCase())}</div>`}
+function av(p){const n=p?.username||'?';if(p?.avatar_url)return `<img class="av" src="${esc(p.avatar_url)}" alt="${esc(n)}">`;return `<div class="av" style="background:${COLORS[(p?.color||0)%6]}">${esc(n[0].toUpperCase())}</div>`}
 function likeBtn(p){const on=user&&p.likes.some(l=>l.user_id===user.id);return `<button class="${on?'on':''}" data-like="${p.id}" aria-pressed="${on}">${on?'♥':'♡'} ${p.likes.length}</button>`}
 
 async function load(){
- const {data,error}=await sb.from('posts').select('*,profiles!posts_user_id_fkey(username,color),likes(user_id),comments(id,body,created_at,profiles!comments_user_id_fkey(username))').order('created_at',{ascending:false}).limit(80);
+ const {data,error}=await sb.from('posts').select('*,profiles!posts_user_id_fkey(id,username,color,avatar_url,bio),likes(user_id),comments(id,body,created_at,profiles!comments_user_id_fkey(username))').order('created_at',{ascending:false}).limit(80);
  if(error){view.innerHTML=`<p class="empty">Couldn’t load posts: ${esc(error.message)}</p>`;return}
- posts=data;render();
+ posts=data;const f=await sb.from('follows').select('follower_id,following_id');follows=f.data||[];render();
 }
 function topbar(){
  $('#me').innerHTML=user?`<button class="ghost" data-tab="profile" style="display:flex;gap:8px;align-items:center;padding:4px 12px 4px 4px" aria-label="My profile">${av(me)}<b>${esc(me?.username||'')}</b></button><button class="pill" id="create">+ Create</button><button class="ghost" id="logout">Log out</button>`:`<button class="ghost" id="login">Log in</button><button class="pill" id="signupBtn">Sign up</button>`;
 }
 function cmtHtml(p){return `<div class="cmts" hidden>${p.comments.map(c=>`<p><b>${esc(c.profiles?.username||'User')}</b> ${esc(c.body)}</p>`).join('')}<form data-form="${p.id}"><input placeholder="Write a comment…" aria-label="Comment" required maxlength="500"><button class="btn">Send</button></form></div>`}
-function renderFeed(){view.className='';const l=posts.filter(p=>p.kind==='post');
- view.innerHTML=l.length?l.map(p=>`<article class="card"><div class="ph">${av(p.profiles)}<div><b>${esc(p.profiles?.username)}</b><small>${ago(p.created_at)}</small></div>${user&&p.user_id===user.id?`<button class="ghost" data-del="${p.id}" style="margin-left:auto" aria-label="Delete post">Delete</button>`:''}</div><div class="txt">${esc(p.body)}</div><div class="media">${mh(p)}</div><div class="acts">${likeBtn(p)}<button data-cm>💬 ${p.comments.length}</button><button data-share="${p.id}">↗ Share</button></div>${cmtHtml(p)}</article>`).join(''):`<p class="empty">No posts yet. Log in and tap + Create to share the first one.</p>`}
+function renderFeed(){view.className='';const l=posts.filter(p=>p.kind==='post'&&(!q||(p.body+' '+(p.profiles?.username||'')).toLowerCase().includes(q)));
+ view.innerHTML=heroHtml()+`<input id="search" placeholder="Search posts and people…" aria-label="Search" value="${esc(q)}" style="margin-bottom:14px">`+(l.length?l.map(p=>`<article class="card"><div class="ph"><button data-prof="${p.user_id}" style="display:flex;gap:10px;align-items:center;text-align:left" aria-label="Open profile">${av(p.profiles)}<span><b style="display:block;line-height:1.1">${esc(p.profiles?.username)}</b><small style="color:var(--mute)">${ago(p.created_at)}</small></span></button>${user&&p.user_id===user.id?`<button class="ghost" data-del="${p.id}" style="margin-left:auto" aria-label="Delete post">Delete</button>`:''}</div><div class="txt">${esc(p.body)}</div><div class="media">${mh(p)}</div><div class="acts">${likeBtn(p)}<button data-cm>💬 ${p.comments.length}</button><button data-share="${p.id}">↗ Share</button></div>${cmtHtml(p)}</article>`).join(''):`<p class="empty">${q?'No results.':'No posts yet. Log in and tap + Create to share the first one.'}</p>`)}
+function heroHtml(){return user?'':`<section class="hero"><h1>Share moments.<br>Watch reels. Build your community.</h1><p>Mela brings posts, short reels and videos together in one friendly place.</p><button class="pill" data-auth="signup">Join free</button> <button class="ghost" data-auth="login">Log in</button></section><div class="feats"><div><b>Posts</b>Share updates with photos</div><div><b>Reels</b>Short vertical videos</div><div><b>Videos</b>Longer videos to watch</div></div>`}
 function renderReels(){view.className='';const l=posts.filter(p=>p.kind==='reel');
  view.innerHTML=l.length?`<div class="reels">${l.map(p=>`<section class="reel">${mh(p,1)}<div class="cap"><b>@${esc(p.profiles?.username)}</b><div>${esc(p.body)}</div></div><div class="side">${likeBtn(p)}<button data-share="${p.id}">↗ Share</button></div></section>`).join('')}</div>`:`<p class="empty">No reels yet. Create the first reel.</p>`}
 function renderVideos(){view.className='wide';
  if(watching){const p=posts.find(x=>x.id===watching);if(p){view.innerHTML=`<div style="max-width:860px;margin:0 auto"><button class="btn" data-back>← All videos</button><div class="media" style="border-radius:16px;margin-top:12px">${mh(p)}</div><h2 style="margin:12px 0 4px">${esc(p.title||'Untitled')}</h2><small style="color:var(--mute)">${ago(p.created_at)} ago</small><p style="white-space:pre-wrap">${esc(p.body)}</p><div class="row">${av(p.profiles)}<b>${esc(p.profiles?.username)}</b><span style="margin-left:auto"></span>${likeBtn(p)}</div><article class="card">${cmtHtml(p).replace('hidden','')}</article></div>`;return}watching=null}
  const l=posts.filter(p=>p.kind==='video');
  view.innerHTML=l.length?`<div class="grid">${l.map(p=>`<button class="vid" data-open="${p.id}"><div class="media">${mh(p)}</div><h3>${esc(p.title||'Untitled')}</h3><small>${esc(p.profiles?.username)} · ${ago(p.created_at)} ago</small></button>`).join('')}</div>`:`<p class="empty">No videos yet. Create the first one.</p>`}
-function renderProfile(){view.className='';
- if(!user){view.innerHTML='<p class="empty">Log in to see your profile.</p>';return}
- const mine=posts.filter(p=>p.user_id===user.id),lk=mine.reduce((n,p)=>n+p.likes.length,0);
- view.innerHTML=`<div class="card" style="padding:18px;text-align:center"><div style="display:flex;justify-content:center"><div class="av" style="width:84px;height:84px;font-size:2rem;background:${COLORS[(me?.color||0)%6]}">${esc((me?.username||'?')[0].toUpperCase())}</div></div><p style="color:var(--mute);margin:8px 0">${esc(user.email||'')}</p><div class="row" style="justify-content:center"><input id="pName" value="${esc(me?.username||'')}" maxlength="30" aria-label="Username" style="max-width:220px"><button class="btn" id="pSave">Save name</button></div><p><b>${mine.length}</b> posts · <b>${lk}</b> likes</p></div>`+(mine.length?mine.map(p=>`<article class="card"><div class="txt" style="padding-top:12px">${esc(p.title?p.title+' — ':'')}${esc(p.body)}</div>${p.media_url?`<div class="media">${mh(p)}</div>`:''}<div class="acts"><button disabled>♥ ${p.likes.length}</button><button disabled>💬 ${p.comments.length}</button><button data-del="${p.id}" style="margin-left:auto">Delete</button></div></article>`).join(''):'<p class="empty">You haven’t posted yet.</p>')}
+function profOf(id){if(user&&id===user.id)return me;const x=posts.find(p=>p.user_id===id);return x?x.profiles:null}
+function renderProfile(){view.className='';const id=pid||user?.id;
+ if(!id){view.innerHTML='<p class="empty">Log in to see your profile.</p>';return}
+ const pr=profOf(id);if(!pr){view.innerHTML='<p class="empty">Profile not found.</p>';return}
+ const own=user&&id===user.id,mine=posts.filter(p=>p.user_id===id),lk=mine.reduce((n,p)=>n+p.likes.length,0);
+ const fers=follows.filter(f=>f.following_id===id).length,fing=follows.filter(f=>f.follower_id===id).length;
+ const isF=user&&follows.some(f=>f.follower_id===user.id&&f.following_id===id),c=GRAD[(pr.color||0)%6];
+ const ava=pr.avatar_url?`<img class="av pav" src="${esc(pr.avatar_url)}" alt="${esc(pr.username)}">`:`<div class="av pav" style="background:${COLORS[(pr.color||0)%6]}">${esc(pr.username[0].toUpperCase())}</div>`;
+ view.innerHTML=`<div class="card"><div class="cover" style="background:linear-gradient(135deg,${c[0]},${c[1]},${c[2]})"></div><div class="pbox">${ava}<h2 style="margin:8px 0 2px">${esc(pr.username)}</h2><p style="margin:0;white-space:pre-wrap;color:var(--mute)">${esc(pr.bio||(own?'Add a short bio below.':''))}</p><div class="stats"><span><b>${mine.length}</b> posts</span><span><b>${fers}</b> followers</span><span><b>${fing}</b> following</span><span><b>${lk}</b> likes</span></div>
+ ${own?`<input id="pName" value="${esc(pr.username)}" maxlength="30" aria-label="Username" style="margin-bottom:8px"><textarea id="pBio" rows="2" maxlength="200" placeholder="Short bio (200 characters)" aria-label="Bio" style="margin-bottom:8px">${esc(pr.bio||'')}</textarea><label style="display:block;margin-bottom:8px;color:var(--mute);font-size:.9rem">Profile photo: <input id="pFile" type="file" accept="image/*"></label><button class="btn" id="pSave">Save profile</button>`:`<button class="btn" data-follow="${id}">${isF?'Following ✓':'Follow'}</button>`}</div></div>`
+ +(mine.length?mine.map(p=>`<article class="card"><div class="txt" style="padding-top:12px">${esc(p.title?p.title+' — ':'')}${esc(p.body)}</div>${p.media_url?`<div class="media">${mh(p)}</div>`:''}<div class="acts"><button disabled>♥ ${p.likes.length}</button><button disabled>💬 ${p.comments.length}</button>${own?`<button data-del="${p.id}" style="margin-left:auto">Delete</button>`:''}</div></article>`).join(''):'<p class="empty">No posts yet.</p>')}
+const INFO={about:['About Mela','Mela is a friendly place to share posts, reels and videos with your community.'],privacy:['Privacy','We store your email, username, profile and the content you share. Posts, reels, videos and profiles are public. You can delete your own posts any time.'],terms:['Terms','Be kind and respectful. Do not post illegal, harmful or hateful content. Content that breaks these rules may be removed.']};
 function render(){topbar();document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));({feed:renderFeed,reels:renderReels,videos:renderVideos,profile:renderProfile})[tab]()}
 function needLogin(){if(user)return false;openAuth(false);toast('Log in first');return true}
 function openAuth(s){signup=s;$('#authTitle').textContent=s?'Create account':'Log in';$('#aName').hidden=!s;$('#aGo').textContent=s?'Sign up':'Log in';$('#aSwitch').textContent=s?'I have an account':'Create an account';$('#authDlg').showModal()}
 
 document.addEventListener('click',async e=>{
  const t=e.target.closest('button');if(!t)return;const d=t.dataset;
- if(d.tab){tab=d.tab;watching=null;render();scrollTo(0,0)}
+ if(d.tab){tab=d.tab;watching=null;pid=null;render();scrollTo(0,0)}
+ else if(d.prof){pid=d.prof;tab='profile';render();scrollTo(0,0)}
+ else if(d.auth)openAuth(d.auth==='signup')
+ else if(d.info){$('#infoT').textContent=INFO[d.info][0];$('#infoB').textContent=INFO[d.info][1];$('#infoDlg').showModal()}
+ else if(d.follow){if(needLogin())return;const fid=d.follow,on=follows.some(f=>f.follower_id===user.id&&f.following_id===fid);
+  if(on){follows=follows.filter(f=>!(f.follower_id===user.id&&f.following_id===fid));render();await sb.from('follows').delete().match({follower_id:user.id,following_id:fid})}
+  else{follows.push({follower_id:user.id,following_id:fid});render();await sb.from('follows').insert({follower_id:user.id,following_id:fid})}}
  else if(d.like){if(needLogin())return;const p=posts.find(x=>x.id===d.like),on=p.likes.some(l=>l.user_id===user.id);
   if(on){p.likes=p.likes.filter(l=>l.user_id!==user.id);render();await sb.from('likes').delete().match({post_id:p.id,user_id:user.id})}
   else{p.likes.push({user_id:user.id});render();await sb.from('likes').insert({post_id:p.id,user_id:user.id})}}
@@ -135,7 +162,13 @@ document.addEventListener('click',async e=>{
  else if(t.id==='logout'){await sb.auth.signOut()}
  else if(t.id==='create'){$('#newDlg').showModal()}
  else if(t.id==='aGoogle'){const r=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(r.error)toast(r.error.message)}
- else if(t.id==='pSave'){const name=$('#pName').value.trim();if(name.length<2){toast('Name is too short');return}const {error}=await sb.from('profiles').update({username:name}).eq('id',user.id);if(error){toast(error.message);return}me.username=name;await load();toast('Saved')}
+ else if(t.id==='pSave'){const name=$('#pName').value.trim(),bio=$('#pBio').value.trim(),f=$('#pFile').files[0];
+  if(name.length<2){toast('Name is too short');return}if(f&&f.size>5242880){toast('Photo must be under 5 MB');return}
+  t.disabled=true;t.textContent='Saving…';const upd={username:name,bio:bio||null};
+  if(f){const path=`${user.id}/avatar-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const up=await sb.storage.from('media').upload(path,f,{contentType:f.type});
+   if(up.error){toast(up.error.message);t.disabled=false;t.textContent='Save profile';return}upd.avatar_url=sb.storage.from('media').getPublicUrl(path).data.publicUrl}
+  const {error}=await sb.from('profiles').update(upd).eq('id',user.id);t.disabled=false;t.textContent='Save profile';
+  if(error){toast(error.message);return}Object.assign(me,upd);await load();toast('Profile saved')}
  else if(t.id==='aSwitch')openAuth(!signup);else if(t.id==='aCancel')$('#authDlg').close();
  else if(t.id==='nCancel')$('#newDlg').close();
  else if(t.id==='aGo'){
@@ -170,9 +203,10 @@ document.addEventListener('submit',async e=>{
  if(error){toast(error.message);return}
  i.value='';await load();const a=[...document.querySelectorAll('[data-form]')].find(f=>f.dataset.form===id);if(a)a.closest('.cmts').hidden=false;
 });
+document.addEventListener('input',e=>{if(e.target.id==='search'){q=e.target.value.toLowerCase();const pos=e.target.selectionStart;renderFeed();const i=$('#search');i.focus();i.setSelectionRange(pos,pos)}});
 async function setUser(session){
  user=session?.user||null;me=null;
- if(user){const {data}=await sb.from('profiles').select('username,color').eq('id',user.id).single();me=data}
+ if(user){const {data}=await sb.from('profiles').select('id,username,color,avatar_url,bio').eq('id',user.id).single();me=data}
  await load();
 }
 sb.auth.onAuthStateChange((ev,s)=>{setTimeout(()=>setUser(s),0)});
